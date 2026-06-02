@@ -23,62 +23,64 @@
 
 ## 安装
 
-进入本目录后，任选一种安装脚本运行。
-
-使用 Python：
+推荐在 `myskills` 根目录运行统一安装脚本：
 
 ```bash
-python3 install.py
+node install.mjs req-maker
 ```
 
-使用 Node.js：
+也可以在本 skill 目录运行兼容 wrapper，它会转发到根目录安装脚本：
 
 ```bash
 node install.mjs
 ```
 
-Python 和 Node.js 脚本功能一致，都是跨平台脚本，支持 macOS、Linux 和 Windows。
+Python wrapper 同样只是转发：
+
+```bash
+python3 install.py
+```
+
+通用安装逻辑只维护在仓库根目录 `install.mjs` 中。
 
 ## 安装选项
 
 预演安装，不写入文件：
 
 ```bash
-python3 install.py --dry-run
-node install.mjs --dry-run
+node ../install.mjs req-maker --dry-run
 ```
 
 安装到所有已知目录，即使没有检测到对应工具：
 
 ```bash
-python3 install.py --all
-node install.mjs --all
+node ../install.mjs req-maker --all
 ```
 
 只安装到某个工具：
 
 ```bash
-python3 install.py --only cursor
-python3 install.py --only codex
-python3 install.py --only claude
-
-node install.mjs --only cursor
-node install.mjs --only codex
-node install.mjs --only claude
+node ../install.mjs req-maker --only cursor
+node ../install.mjs req-maker --only codex
+node ../install.mjs req-maker --only claude
 ```
 
 同时选择多个工具：
 
 ```bash
-python3 install.py --only codex --only claude
-node install.mjs --only codex --only claude
+node ../install.mjs req-maker --only codex --only claude
+```
+
+安装目录下所有 skill：
+
+```bash
+node ../install.mjs --all-skills
 ```
 
 使用复制方式安装，而不是链接：
 
 ```bash
-python3 install.py --copy
-node install.mjs --copy
+node ../install.mjs req-maker --copy
 ```
 
 `--copy` 适合不允许创建 symlink 的系统或环境。复制安装后，如果修改本目录，需要重新运行安装脚本同步到各 Agent。
@@ -153,6 +155,7 @@ Use $req-maker to turn my product notes into inputs/req.md.
 ## 项目结构
 
 ```text
+install.mjs
 req-maker/
   SKILL.md
   VERSION
@@ -173,8 +176,8 @@ req-maker/
 - `VERSION`：skill 当前版本号。
 - `assets/req-template.md`：内置 PiFlow 需求模板。
 - `scripts/figma-make-summary.mjs`：解析 Figma Make 本地 `.make` 文件，输出可用于需求提取的 Markdown 摘要。
-- `install.py`：Python 安装脚本。
-- `install.mjs`：Node.js 安装脚本。
+- `../install.mjs`：仓库根目录通用安装脚本。
+- `install.py` / `install.mjs`：兼容 wrapper，转发到根目录安装脚本。
 - `agents/openai.yaml`：OpenAI/Codex 相关展示和默认提示配置。
 
 ## 注意事项
