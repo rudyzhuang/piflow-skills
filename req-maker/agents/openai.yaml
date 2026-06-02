@@ -1,0 +1,7 @@
+interface:
+  display_name: "Req Maker"
+  short_description: "从文档提炼需求，生成并多轮评审修订项目 req.md"
+  default_prompt: "Use $req-maker to turn my product notes and documents into inputs/req.md, then review and revise it until it passes source-coverage and requirements-quality checks."
+
+policy:
+  allow_implicit_invocation: true
