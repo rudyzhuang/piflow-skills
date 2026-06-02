@@ -139,6 +139,8 @@ Use $req-maker to turn my product notes into inputs/req.md.
 
 如果信息可以合理推断，skill 会直接补充；如果确实未知，会写 `暂不确定` 或按模板允许的方式留空。
 
+生成 `## 核心功能 *` 时，`req-maker` 会自动为新功能生成 PiFlow 风格 `feature_id`，例如 `AUTH-LOGIN-001`、`WEB-SEARCH-001`、`BACKEND-HEALTH-001`。单端功能使用端前缀，跨端功能使用业务领域前缀，并在评审时检查唯一性、格式和端前缀是否匹配。
+
 ## 工作流程
 
 `req-maker` 的核心流程如下：

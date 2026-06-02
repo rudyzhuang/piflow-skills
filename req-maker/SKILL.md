@@ -42,6 +42,7 @@ Generate `inputs/req.md` for a project by synthesizing the user's description an
      - Convert UI-only elements into product requirements when they imply behavior, state, validation, empty/loading states, or integration needs.
    - Convert vague ideas into product-facing requirements, not implementation chores.
    - Keep `priority`, `phase`, and `client_targets` consistent with the template vocabulary.
+   - Generate `feature_id` for every new feature according to the PiFlow naming rules below; do not leave generated feature IDs blank.
    - If information is missing but can be reasonably inferred, fill it and avoid overexplaining.
    - If information is genuinely unknown, write `暂不确定` or leave the field empty when the template allows it.
 
@@ -59,7 +60,7 @@ Generate `inputs/req.md` for a project by synthesizing the user's description an
 
 7. Run a requirements-quality review loop.
    - Review the revised `inputs/req.md` again for requirement reasonableness, internal consistency, and completeness.
-   - Check that features are product-facing, priorities and phases are coherent, `client_targets` match the described behavior, dependencies are reflected, non-functional needs are appropriate, and test cases cover the launch-blocking flows.
+   - Check that features are product-facing, priorities and phases are coherent, generated `feature_id` values are unique and valid, `client_targets` match the described behavior, dependencies are reflected, non-functional needs are appropriate, and test cases cover the launch-blocking flows.
    - Produce concrete review findings. If findings exist, revise `inputs/req.md` according to them, then repeat this review-and-revise cycle.
    - Stop only when the review passes with no material reasonableness, consistency, or completeness issues.
 
@@ -74,11 +75,29 @@ Generate `inputs/req.md` for a project by synthesizing the user's description an
 - Write in Chinese unless the user asks for another language.
 - Preserve comments only when they help future editing; remove placeholder examples that would confuse the final requirements.
 - Use business language for features: describe what users can accomplish and what success looks like.
-- Keep feature IDs blank for new features unless the user provides existing IDs.
+- Preserve existing non-empty feature IDs for existing features.
+- Generate feature IDs for new features; never leave a new feature's `feature_id` blank.
 - Prefer `must` and `mvp` only for truly first-release requirements.
 - Include backend in `client_targets` when the feature requires persistence, authentication, integrations, or server-side processing.
 - Do not invent real domains, credentials, private data, third-party account details, legal claims, or strict performance numbers.
 - Keep test cases focused on the most important launch-blocking flows.
+
+## Feature ID Rules
+
+- Format: `^[A-Z][A-Z0-9]*(-[A-Z][A-Z0-9]*)*-[0-9]{3}$`.
+- Use uppercase ASCII segments separated by `-`, ending with a three-digit sequence such as `001`.
+- Normalize client targets before choosing a prefix:
+  - `website`, `web`, `frontend` -> `WEB`
+  - `admin` -> `ADMIN`
+  - `backend`, `api` -> `BACKEND`
+  - `mobile`, `ios`, `android` -> `MOB`
+- Single-target features use the target prefix: `WEB-SEARCH-001`, `ADMIN-USER-001`, `BACKEND-HEALTH-001`, `MOB-SCAN-001`.
+- Multi-target features use a business domain prefix, not a client prefix, even when one target is `backend`: `AUTH-LOGIN-001`, `NOTE-CRUD-001`, `ORDER-CHECKOUT-001`.
+- Pick a concise business domain from the feature name and source material, for example `AUTH`, `USER`, `ORDER`, `NOTE`, `TASK`, `FILE`, `CONTENT`, `SEARCH`, `REPORT`, `PAY`, `BILLING`, `VIDEO`, `AI`, `PROJ`.
+- Use a short action or area segment after the prefix when it improves clarity, for example `LOGIN`, `CRUD`, `LIST`, `DETAIL`, `EXPORT`, `UPLOAD`, `SYNC`, `SETTINGS`.
+- Number from `001` and increment within the same prefix/action family. If existing IDs are present in the current `req.md`, `req.yaml`, PRD files, or source material, continue from the highest used number for that family and avoid duplicates globally.
+- Use the same `feature_id` in test cases and dependencies. When a test clearly maps to a generated feature, fill its `feature_id` with that value.
+- During quality review, fail and revise if any feature ID is blank, duplicated, malformed, uses a client prefix for a multi-target feature, or uses the wrong client prefix for a single-target feature.
 
 ## Review Rules
 
