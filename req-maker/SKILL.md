@@ -81,6 +81,22 @@ Use `export-req-md` when the user mentions `req-md-export`, `ReqMdExportDocument
 
 Use this workflow instead of the draft workflow when the input is a Backend requirement export or a request to implement the `req-review` design.
 
+When a shell is available, prefer running this skill's helper script for this workflow:
+
+```bash
+node scripts/export-req-md.mjs --input <export.json-or.md> --output <project>/inputs/req.md
+```
+
+For API mode:
+
+```bash
+node scripts/export-req-md.mjs \
+  --api-base-url <api-base-url> \
+  --project-id <project-id> \
+  --device-api-key <device-api-key> \
+  --workspace-root <workspace-root>
+```
+
 1. Receive export context.
    - Expected fields may include `mode: export-req-md`, `api_base_url`, `project_id`, `run_id`, `device_api_key`, `workspace_root`, `template_path`, and `output_path`.
    - Default `output_path` to `<workspace_root>/<project_id>/inputs/req.md` when both `workspace_root` and `project_id` are known.
@@ -93,7 +109,7 @@ Use this workflow instead of the draft workflow when the input is a Backend requ
    - Map HTTP failures to safe error summaries: `401 -> REQ_EXPORT_AUTH_FAILED`, `403 -> REQ_EXPORT_FORBIDDEN`, `404 -> REQ_EXPORT_NOT_FOUND`, `422/invalid data -> REQ_EXPORT_INVALID`, network failures -> `REQ_EXPORT_NETWORK_ERROR`.
 
 3. For structured JSON, validate and normalize `ReqMdExportDocument`.
-   - Required top-level data: `project_name.name_zh`, `project_name.name_en`, `project_summary`, `client_targets`, `features`, `test_cases`, `non_functional`, `deployment`, `auth`, `tech_constraints`, and `other_notes`.
+   - Required top-level data: `template_ref`, `project_name.name_zh`, `project_name.name_en`, `project_summary`, `client_targets`, `features`, `test_cases`, `non_functional`, `deployment`, `auth`, `tech_constraints`, and `other_notes`.
    - Default `agent.agent_provider` to `codex` and `agent.agent_model` to `gpt-5.5` when absent.
    - Validate enums:
      - `client_targets[].target`: `website | admin | backend | mobile | desktop | miniapp`
@@ -102,8 +118,13 @@ Use this workflow instead of the draft workflow when the input is a Backend requ
      - `features[].phase`: `mvp | v1 | later`
      - `test_cases[].type`: `smoke | e2e | api | regression | edge | error`
    - Normalize string fields with trim and array fields to arrays.
-   - Required feature traceability fields: `requirement_id`, `item_id`, `version_number`, `version_hash`, `version_status`.
-   - Required feature content fields: `heading_title`, `priority`, `phase`, `client_targets`, and `description`. If `description` is empty and `freeform_content` exists, use `freeform_content` only as a description fallback.
+   - Required feature traceability fields: `requirement_id`, `item_id`, `source_item_id`, `version_number`, `version_hash`, `version_status`. `source_item_id` may be empty only for non-derived items.
+   - Required test case traceability fields: `item_id`, `source_item_id`, `version_number`, `version_hash`, and `version_status`. `source_item_id` may be empty only for non-derived items.
+   - Require and validate Feature `structured_content`, `structured_source`, `freeform_content`, and `freeform_source`; `structured_source` and `freeform_source` must be `user | ai`.
+   - Require and validate Test Case `structured_content`, `structured_source`, `freeform_content`, and `freeform_source`; `structured_source` and `freeform_source` must be `user | ai`.
+   - For AI-derived features or test cases (`structured_source: ai`), require `source_item_id` so the derived structured item can trace back to its original freeform item.
+   - Reject or fail review when `features[]` or `test_cases[]` contains an original freeform source item that was already split into derived structured items. Backend should exclude those source items before export; the skill must not duplicate them in `req.md`.
+   - Required feature content fields: `heading_title`, `priority`, `phase`, `client_targets`, and `description`. Prefer values from `structured_content` for template fields; if `description` is empty and `freeform_content` exists, use `freeform_content` only as a description fallback.
    - Preserve Backend-provided non-empty `feature_id` exactly. In this export mode, `feature_id` may be empty when Backend intentionally leaves new features for later PiFlow stages, but do not remove the field.
 
 4. Load the template for export rendering.
@@ -118,10 +139,10 @@ Use this workflow instead of the draft workflow when the input is a Backend requ
    - Always output required sections in template order.
    - Render client targets as `- <target>: <positioning>` and include `layout_shell`, `default_route`, and `menu` for admin layout when present.
    - Render each feature as `### Feature: <heading_client> 端 - <heading_title>`.
-   - Include these fields in every feature block when available, in this order: `requirement_id`, `item_id`, `version_number`, `version_hash`, `version_status`, `feature_id`, `priority`, `phase`, `client_targets`, `description`, `user_stories`, `acceptance_criteria`, `dependencies`.
-   - In `acceptance_criteria`, automatically include traceability lines for `requirement_id`, `item_id`, `version_number`, `version_hash`, and `version_status` before business criteria so reports can map back to requirement versions.
-   - Do not render Backend-only fields except explicit traceability fields.
-   - Render each test case as `### TC-001: <title>` with `feature_id`, `client_target`, `type`, `priority`, `preconditions`, `steps`, `expected`, and `test_data`.
+   - Include these fields in every feature block when available, in this order: `requirement_id`, `item_id`, `source_item_id`, `version_number`, `version_hash`, `version_status`, `feature_id`, `priority`, `phase`, `client_targets`, `description`, `user_stories`, `acceptance_criteria`, `dependencies`.
+   - In `acceptance_criteria`, automatically include traceability lines for `requirement_id`, `item_id`, `source_item_id`, `version_number`, `version_hash`, and `version_status` before business criteria so reports can map back to requirement versions and split source items.
+   - Do not render Backend-only fields except explicit traceability fields. In particular, do not render `structured_source`, `freeform_source`, `structured_content`, or `freeform_content` as standalone output fields.
+   - Render each test case as `### TC-001: <title>` with `feature_id`, `item_id`, `source_item_id`, `version_number`, `version_hash`, `version_status`, `client_target`, `type`, `priority`, `preconditions`, `steps`, `expected`, and `test_data`.
    - Use `  -` list indentation. For empty arrays, preserve the section and output a single empty list placeholder.
    - For deployment domains, write only a host/domain value. Do not include `https://` or paths such as `/admin`, `/website`, or `/api`.
 
@@ -135,7 +156,9 @@ Use this workflow instead of the draft workflow when the input is a Backend requ
    - Required sections must exist and appear in template order.
    - Accept either the piflow export deployment section (`## 部署 *`) or the bundled draft section (`## 部署域名`) according to the chosen template.
    - Each `### Feature:` block must contain `feature_id:`, `priority:`, `phase:`, `client_targets:`, `description:`, `user_stories:`, `acceptance_criteria:`, and `dependencies:`.
-   - Each Backend-derived feature must contain `requirement_id:`, `item_id:`, `version_number:`, `version_hash:`, and `version_status:`.
+   - Each Backend-derived feature must contain `requirement_id:`, `item_id:`, `source_item_id:`, `version_number:`, `version_hash:`, and `version_status:`.
+   - Each Backend-derived test case must contain `item_id:`, `source_item_id:`, `version_number:`, `version_hash:`, `version_status:`, `client_target:`, `type:`, and `priority:`.
+   - AI-derived features and test cases must preserve `source_item_id`; original freeform source items that were split must not be rendered again.
    - `domain=` or `DOMAIN=` must not contain protocol or path.
    - Output must not contain `device_api_key`, `cursor_api_key`, `api_key_hash`, `Authorization`, `Bearer <token>`, Admin session cookies, or internal stack traces.
 
@@ -186,7 +209,11 @@ Use this workflow instead of the draft workflow when the input is a Backend requ
 ## Export Compatibility Rules
 
 - Backend `req-md-export` data is the single source of business truth in `export-req-md` mode.
-- Preserve traceability fields in feature blocks and acceptance criteria: `requirement_id`, `item_id`, `version_number`, `version_hash`, and `version_status`.
+- Preserve traceability fields in feature blocks and acceptance criteria: `requirement_id`, `item_id`, `source_item_id`, `version_number`, `version_hash`, and `version_status`.
+- Preserve test case traceability fields: `item_id`, `source_item_id`, `version_number`, `version_hash`, and `version_status`.
+- Prefer `structured_content` values over duplicated top-level template fields when rendering Backend export JSON.
+- Treat `freeform_content` as a fallback only; never render it as a standalone section.
+- Support AI one-to-many freeform splitting by rendering only derived structured items and preserving their `source_item_id`; do not duplicate the original split freeform item.
 - Support both future structured JSON (`ReqMdExportDocument`) and current rendered Markdown (`text/markdown; charset=utf-8`) responses.
 - Prefer structured JSON for validation and rendering. Treat rendered Markdown as a temporary compatibility path that receives structural and security validation only.
 - Do not write secret request inputs or auth headers into `req.md` or user-visible error summaries.
@@ -213,3 +240,4 @@ Use this workflow instead of the draft workflow when the input is a Backend requ
 ## Helper Scripts
 
 - `scripts/figma-make-summary.mjs`: summarizes a local Figma Make `.make` bundle by reading `meta.json` and `ai_chat.json` through `unzip`, then prints a Markdown source summary suitable for requirement extraction.
+- `scripts/export-req-md.mjs`: fetches or reads a Backend `req-md-export` JSON/Markdown response, validates traceability and section rules, renders structured JSON to `req.md`, and writes the result to `inputs/req.md`.

@@ -9,7 +9,7 @@
 
 两轮评审都会按发现的问题修改 `inputs/req.md`，直到评审通过。
 
-在 `export-req-md` 模式下，Backend 导出数据是唯一业务来源；skill 会保留 `requirement_id`、`item_id`、`version_number`、`version_hash`、`version_status` 等追溯字段，并执行结构、字段和敏感信息自检。
+在 `export-req-md` 模式下，Backend 导出数据是唯一业务来源；skill 会保留 `requirement_id`、`item_id`、`source_item_id`、`version_number`、`version_hash`、`version_status` 等追溯字段，并执行结构、字段和敏感信息自检。AI 评审把 freeform 一对多拆成 structured 清单项时，导出结果只渲染派生 structured 项，并通过 `source_item_id` 追溯原 freeform 来源项。
 
 ## 支持的工具
 
@@ -121,6 +121,24 @@ Backend 导出兼容示例：
 使用 req-maker 的 export-req-md 模式，根据 Backend 的 GET /api/v1/projects/:id/req-md-export 返回内容生成 inputs/req.md。
 ```
 
+可直接运行 helper 脚本处理本地导出文件：
+
+```bash
+node req-maker/scripts/export-req-md.mjs \
+  --input /path/to/req-md-export.json \
+  --output /path/to/project/inputs/req.md
+```
+
+也可让脚本请求 Backend：
+
+```bash
+node req-maker/scripts/export-req-md.mjs \
+  --api-base-url https://piflow.org/api/v1 \
+  --project-id project_uuid \
+  --device-api-key "$DEVICE_API_KEY" \
+  --workspace-root /Users/name/piflow-projects
+```
+
 也可以提供导出上下文：
 
 ```json
@@ -170,7 +188,9 @@ Backend 导出兼容示例：
 
 生成 `## 核心功能 *` 时，`req-maker` 会自动为新功能生成 PiFlow 风格 `feature_id`，例如 `AUTH-LOGIN-001`、`WEB-SEARCH-001`、`BACKEND-HEALTH-001`。单端功能使用端前缀，跨端功能使用业务领域前缀，并在评审时检查唯一性、格式和端前缀是否匹配。
 
-导出模式下，Backend 已提供的非空 `feature_id` 会被原样保留；如果 Backend 有意留空，skill 只保留字段，不擅自补业务事实。每个来自 Backend 的 Feature 都会保留追溯字段，并在验收标准里补入对应追溯信息，方便后续 report 关联需求版本。
+导出模式下，Backend 已提供的非空 `feature_id` 会被原样保留；如果 Backend 有意留空，skill 只保留字段，不擅自补业务事实。每个来自 Backend 的 Feature 都会保留追溯字段，并在验收标准里补入对应追溯信息，方便后续 report 关联需求版本。Test Case 也会保留 `item_id`、`source_item_id`、`version_number`、`version_hash`、`version_status`，确保测试结果能回溯到需求清单版本。
+
+当 Backend 返回结构化 JSON 时，`structured_content` 是模板字段的主来源；`freeform_content` 只在描述缺失时兜底，不会作为独立章节输出。`structured_source` 和 `freeform_source` 仅用于校验和追溯，不会写入最终 `req.md`。
 
 ## 工作流程
 
@@ -192,7 +212,7 @@ Backend 导出兼容示例：
 3. 如果响应是 JSON，按 `ReqMdExportDocument` 校验、规范化并渲染 Markdown。
 4. 如果响应是 Markdown，只做章节顺序和敏感信息检查，通过后直接写入。
 5. 首选 piflow 仓库模板 `/Users/guodongzhuang/github/piflow/templates/req-template.md`，不可读时使用内置模板。
-6. 检查必需章节、Feature 字段、追溯字段、domain 格式和敏感信息泄漏。
+6. 检查必需章节、Feature 字段、Test Case 字段、追溯字段、AI 拆分来源、domain 格式和敏感信息泄漏。
 7. 写入 `<workspace_root>/<project_id>/inputs/req.md`，并返回成功或安全失败摘要。
 
 ## 项目结构
@@ -210,6 +230,7 @@ req-maker/
   assets/
     req-template.md
   scripts/
+    export-req-md.mjs
     figma-make-summary.mjs
 ```
 
@@ -218,6 +239,7 @@ req-maker/
 - `SKILL.md`：skill 主说明，定义触发条件、生成流程、评审流程和输出要求。
 - `VERSION`：skill 当前版本号。
 - `assets/req-template.md`：内置 PiFlow 需求模板。
+- `scripts/export-req-md.mjs`：读取或请求 Backend `req-md-export`，校验 JSON/Markdown，渲染结构化需求到 `inputs/req.md`。
 - `scripts/figma-make-summary.mjs`：解析 Figma Make 本地 `.make` 文件，输出可用于需求提取的 Markdown 摘要。
 - `../install.mjs`：仓库根目录通用安装脚本。
 - `install.py` / `install.mjs`：兼容 wrapper，转发到根目录安装脚本。
