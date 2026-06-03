@@ -1,13 +1,15 @@
 # req-maker
 
-`req-maker` 是一个用于生成项目需求文档的 Agent Skill。它会从用户输入、产品笔记、需求说明、截图转写内容、Figma Make 本地副本（`.make`）或其他文档中提炼需求，并按照 PiFlow 需求模板生成 `inputs/req.md`。
+`req-maker` 是一个用于生成和导出项目需求文档的 Agent Skill。它会从用户输入、产品笔记、需求说明、截图转写内容、Figma Make 本地副本（`.make`）或其他文档中提炼需求，并按照 PiFlow 需求模板生成 `inputs/req.md`。它也兼容 piflow-cli 的 Backend `req-md-export` 流程，可以从结构化导出数据或已渲染 Markdown 写入 `inputs/req.md`。
 
-生成完成后，它还会执行两轮评审和修订：
+从草稿来源生成需求时，它还会执行两轮评审和修订：
 
 - 来源覆盖评审：检查输入材料中的事实、约束、目标、功能、风险等是否遗漏或失真。
 - 需求质量评审：检查需求是否合理、一致、完整，功能优先级、客户端目标、测试用例等是否匹配。
 
 两轮评审都会按发现的问题修改 `inputs/req.md`，直到评审通过。
+
+在 `export-req-md` 模式下，Backend 导出数据是唯一业务来源；skill 会保留 `requirement_id`、`item_id`、`version_number`、`version_hash`、`version_status` 等追溯字段，并执行结构、字段和敏感信息自检。
 
 ## 支持的工具
 
@@ -113,12 +115,39 @@ Use $req-maker to turn my product notes into inputs/req.md.
 使用 req-maker，读取 /path/to/产品 UI.make，生成项目的 inputs/req.md。
 ```
 
+Backend 导出兼容示例：
+
+```text
+使用 req-maker 的 export-req-md 模式，根据 Backend 的 GET /api/v1/projects/:id/req-md-export 返回内容生成 inputs/req.md。
+```
+
+也可以提供导出上下文：
+
+```json
+{
+  "mode": "export-req-md",
+  "api_base_url": "https://piflow.org/api/v1/",
+  "project_id": "project_uuid",
+  "run_id": "run_uuid",
+  "device_api_key": "secret",
+  "workspace_root": "/Users/name/piflow-projects",
+  "template_path": "/Users/guodongzhuang/github/piflow/templates/req-template.md",
+  "output_path": "/Users/name/piflow-projects/project_uuid/inputs/req.md"
+}
+```
+
 遇到 `.make` 文件时，skill 会把它当作 Figma Make 的 zip-like 本地包处理，优先读取其中的 `meta.json` 和 `ai_chat.json`，提取原始设计提示、后续修改需求、版本历史和实现摘要。`canvas.fig` 是 Figma Make 的二进制画布数据，当前不会被声明为完整图层树来源；如需视觉细节，应结合截图、缩略图或普通 Figma `/design/...` 链接。
 
-生成结果会写入当前项目：
+草稿模式生成结果会写入当前项目：
 
 ```text
 <project-root>/inputs/req.md
+```
+
+导出模式默认写入：
+
+```text
+<workspace_root>/<project_id>/inputs/req.md
 ```
 
 ## 生成内容
@@ -132,7 +161,7 @@ Use $req-maker to turn my product notes into inputs/req.md.
 - 核心功能
 - 非功能需求
 - 测试用例
-- 部署域名
+- 部署域名，或 piflow-cli 模板中的部署章节
 - 鉴权方案
 - 技术约束
 - 其他说明
@@ -141,9 +170,11 @@ Use $req-maker to turn my product notes into inputs/req.md.
 
 生成 `## 核心功能 *` 时，`req-maker` 会自动为新功能生成 PiFlow 风格 `feature_id`，例如 `AUTH-LOGIN-001`、`WEB-SEARCH-001`、`BACKEND-HEALTH-001`。单端功能使用端前缀，跨端功能使用业务领域前缀，并在评审时检查唯一性、格式和端前缀是否匹配。
 
+导出模式下，Backend 已提供的非空 `feature_id` 会被原样保留；如果 Backend 有意留空，skill 只保留字段，不擅自补业务事实。每个来自 Backend 的 Feature 都会保留追溯字段，并在验收标准里补入对应追溯信息，方便后续 report 关联需求版本。
+
 ## 工作流程
 
-`req-maker` 的核心流程如下：
+`req-maker` 的草稿模式核心流程如下：
 
 1. 定位项目根目录。
 2. 收集用户输入和提供的文档材料。
@@ -153,6 +184,16 @@ Use $req-maker to turn my product notes into inputs/req.md.
 6. 执行来源覆盖评审，按建议修改，直到通过。
 7. 执行需求质量评审，按建议修改，直到通过。
 8. 校验输出文件和模板章节。
+
+`export-req-md` 模式核心流程如下：
+
+1. 接收 `project_id`、`run_id`、`device_api_key`、`workspace_root`、`template_path` 等上下文。
+2. 请求或读取 `GET /api/v1/projects/:id/req-md-export` 的导出结果。
+3. 如果响应是 JSON，按 `ReqMdExportDocument` 校验、规范化并渲染 Markdown。
+4. 如果响应是 Markdown，只做章节顺序和敏感信息检查，通过后直接写入。
+5. 首选 piflow 仓库模板 `/Users/guodongzhuang/github/piflow/templates/req-template.md`，不可读时使用内置模板。
+6. 检查必需章节、Feature 字段、追溯字段、domain 格式和敏感信息泄漏。
+7. 写入 `<workspace_root>/<project_id>/inputs/req.md`，并返回成功或安全失败摘要。
 
 ## 项目结构
 

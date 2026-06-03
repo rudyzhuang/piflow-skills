@@ -1,6 +1,6 @@
 ---
 name: req-maker
-description: Extract project requirements from the user's prompt and any provided documents, Figma Make local copies (.make), screenshots, or specs, then write a complete Chinese req.md using the PiFlow requirements template. Use when the user asks to create, draft, refine, or regenerate project requirements, especially for PiFlow projects, inputs/req.md, req-template.md, Figma Make UI drafts, or natural-language product ideas that need to become structured requirements.
+description: Extract project requirements from prompts, documents, Figma Make local copies (.make), screenshots, specs, or PiFlow req-md-export data, then write a complete Chinese req.md using the PiFlow requirements template. Use when the user asks to create, draft, refine, regenerate, export, render, or review requirements, especially for PiFlow projects, inputs/req.md, req-template.md, Backend req-md-export, Figma Make UI drafts, or natural-language product ideas that need to become structured requirements.
 ---
 
 # Req Maker
@@ -9,7 +9,14 @@ description: Extract project requirements from the user's prompt and any provide
 
 Generate `inputs/req.md` for a project by synthesizing the user's description and supplied materials into the required PiFlow Markdown template. Preserve the template's headings and field names, and write concise, implementation-ready Chinese requirements.
 
-## Workflow
+This skill has two modes:
+
+- `draft-from-sources`: the default mode for natural-language prompts, product notes, Figma Make bundles, screenshots, and other source documents.
+- `export-req-md`: the PiFlow CLI/export mode for data returned by Backend `GET /api/v1/projects/:id/req-md-export`. In this mode, Backend export data is the only business source, traceability fields must be preserved, and no new business facts may be invented.
+
+Use `export-req-md` when the user mentions `req-md-export`, `ReqMdExportDocument`, `project_id` plus `device_api_key`, piflow-cli `start` handling, or asks to make this skill compatible with the req-review export/render flow.
+
+## Draft-From-Sources Workflow
 
 1. Locate the project root.
    - Prefer the current repository/workspace root.
@@ -70,6 +77,74 @@ Generate `inputs/req.md` for a project by synthesizing the user's description an
    - Confirm both review loops passed.
    - Briefly report the path written and any important assumptions.
 
+## Export-Req-Md Workflow
+
+Use this workflow instead of the draft workflow when the input is a Backend requirement export or a request to implement the `req-review` design.
+
+1. Receive export context.
+   - Expected fields may include `mode: export-req-md`, `api_base_url`, `project_id`, `run_id`, `device_api_key`, `workspace_root`, `template_path`, and `output_path`.
+   - Default `output_path` to `<workspace_root>/<project_id>/inputs/req.md` when both `workspace_root` and `project_id` are known.
+   - Treat `device_api_key` and any Bearer token as secrets. Use them only for the request; never write them to `req.md`, logs, review notes, or final summaries.
+
+2. Fetch or read the requirement export.
+   - If API context is provided, call `GET /api/v1/projects/:id/req-md-export` with `Authorization: Bearer <device_api_key>`.
+   - Accept either `application/json` structured data or `text/markdown` rendered Markdown.
+   - If the user directly provides a JSON or Markdown export file, use that file instead of making a network request.
+   - Map HTTP failures to safe error summaries: `401 -> REQ_EXPORT_AUTH_FAILED`, `403 -> REQ_EXPORT_FORBIDDEN`, `404 -> REQ_EXPORT_NOT_FOUND`, `422/invalid data -> REQ_EXPORT_INVALID`, network failures -> `REQ_EXPORT_NETWORK_ERROR`.
+
+3. For structured JSON, validate and normalize `ReqMdExportDocument`.
+   - Required top-level data: `project_name.name_zh`, `project_name.name_en`, `project_summary`, `client_targets`, `features`, `test_cases`, `non_functional`, `deployment`, `auth`, `tech_constraints`, and `other_notes`.
+   - Default `agent.agent_provider` to `codex` and `agent.agent_model` to `gpt-5.5` when absent.
+   - Validate enums:
+     - `client_targets[].target`: `website | admin | backend | mobile | desktop | miniapp`
+     - `features[].version_status`: `draft | ai-reviewed | reviewed`
+     - `features[].priority`: `must | should | nice`
+     - `features[].phase`: `mvp | v1 | later`
+     - `test_cases[].type`: `smoke | e2e | api | regression | edge | error`
+   - Normalize string fields with trim and array fields to arrays.
+   - Required feature traceability fields: `requirement_id`, `item_id`, `version_number`, `version_hash`, `version_status`.
+   - Required feature content fields: `heading_title`, `priority`, `phase`, `client_targets`, and `description`. If `description` is empty and `freeform_content` exists, use `freeform_content` only as a description fallback.
+   - Preserve Backend-provided non-empty `feature_id` exactly. In this export mode, `feature_id` may be empty when Backend intentionally leaves new features for later PiFlow stages, but do not remove the field.
+
+4. Load the template for export rendering.
+   - Prefer the provided `template_path`.
+   - Otherwise prefer `/Users/guodongzhuang/github/piflow/templates/req-template.md` when readable.
+   - Otherwise use this skill's bundled fallback: `assets/req-template.md`.
+   - For piflow-cli export mode, prefer the piflow repository template structure when available: `## 部署 *` with `cloud_provider` and `domain=`.
+   - If using the bundled fallback, `## 部署域名` with `DOMAIN=` is acceptable.
+   - Use the template for section order and field names; do not copy instructional comments into the final output.
+
+5. Render structured JSON to Markdown.
+   - Always output required sections in template order.
+   - Render client targets as `- <target>: <positioning>` and include `layout_shell`, `default_route`, and `menu` for admin layout when present.
+   - Render each feature as `### Feature: <heading_client> 端 - <heading_title>`.
+   - Include these fields in every feature block when available, in this order: `requirement_id`, `item_id`, `version_number`, `version_hash`, `version_status`, `feature_id`, `priority`, `phase`, `client_targets`, `description`, `user_stories`, `acceptance_criteria`, `dependencies`.
+   - In `acceptance_criteria`, automatically include traceability lines for `requirement_id`, `item_id`, `version_number`, `version_hash`, and `version_status` before business criteria so reports can map back to requirement versions.
+   - Do not render Backend-only fields except explicit traceability fields.
+   - Render each test case as `### TC-001: <title>` with `feature_id`, `client_target`, `type`, `priority`, `preconditions`, `steps`, `expected`, and `test_data`.
+   - Use `  -` list indentation. For empty arrays, preserve the section and output a single empty list placeholder.
+   - For deployment domains, write only a host/domain value. Do not include `https://` or paths such as `/admin`, `/website`, or `/api`.
+
+6. For rendered Markdown responses, use compatibility mode.
+   - Do not re-parse and re-render business fields.
+   - Validate required section presence, required section order, and sensitive information rules.
+   - If validation passes, write the Markdown directly to `inputs/req.md`.
+   - If validation fails, return `REQ_EXPORT_INVALID` and a safe summary explaining which section or rule is incompatible.
+
+7. Run export self-checks before writing or finalizing.
+   - Required sections must exist and appear in template order.
+   - Accept either the piflow export deployment section (`## 部署 *`) or the bundled draft section (`## 部署域名`) according to the chosen template.
+   - Each `### Feature:` block must contain `feature_id:`, `priority:`, `phase:`, `client_targets:`, `description:`, `user_stories:`, `acceptance_criteria:`, and `dependencies:`.
+   - Each Backend-derived feature must contain `requirement_id:`, `item_id:`, `version_number:`, `version_hash:`, and `version_status:`.
+   - `domain=` or `DOMAIN=` must not contain protocol or path.
+   - Output must not contain `device_api_key`, `cursor_api_key`, `api_key_hash`, `Authorization`, `Bearer <token>`, Admin session cookies, or internal stack traces.
+
+8. Write result and return a concise status.
+   - Create parent directories as needed.
+   - Overwrite an existing `inputs/req.md` when export mode is explicitly requested.
+   - On success, report `status`, `output_path`, `source_format`, `template_ref`, `feature_count`, `test_case_count`, and warnings.
+   - On failure, report `status: failed`, `error_code`, `error_summary`, and `safe_for_run_status: true` with secrets redacted.
+
 ## Drafting Rules
 
 - Write in Chinese unless the user asks for another language.
@@ -77,6 +152,7 @@ Generate `inputs/req.md` for a project by synthesizing the user's description an
 - Use business language for features: describe what users can accomplish and what success looks like.
 - Preserve existing non-empty feature IDs for existing features.
 - Generate feature IDs for new features; never leave a new feature's `feature_id` blank.
+- In `export-req-md` mode, preserve Backend-provided feature IDs and traceability fields exactly; do not generate missing feature IDs unless the caller explicitly asks for draft-style normalization.
 - Prefer `must` and `mvp` only for truly first-release requirements.
 - Include backend in `client_targets` when the feature requires persistence, authentication, integrations, or server-side processing.
 - Do not invent real domains, credentials, private data, third-party account details, legal claims, or strict performance numbers.
@@ -107,6 +183,15 @@ Generate `inputs/req.md` for a project by synthesizing the user's description an
 - In each loop, if the review passes, explicitly note that the loop passed in the final response.
 - Avoid endless churn: only repeat when there is a material omission, contradiction, unreasonable requirement, or completeness gap.
 
+## Export Compatibility Rules
+
+- Backend `req-md-export` data is the single source of business truth in `export-req-md` mode.
+- Preserve traceability fields in feature blocks and acceptance criteria: `requirement_id`, `item_id`, `version_number`, `version_hash`, and `version_status`.
+- Support both future structured JSON (`ReqMdExportDocument`) and current rendered Markdown (`text/markdown; charset=utf-8`) responses.
+- Prefer structured JSON for validation and rendering. Treat rendered Markdown as a temporary compatibility path that receives structural and security validation only.
+- Do not write secret request inputs or auth headers into `req.md` or user-visible error summaries.
+- In export mode, use failure codes compatible with piflow-cli run status: `REQ_EXPORT_AUTH_FAILED`, `REQ_EXPORT_FORBIDDEN`, `REQ_EXPORT_NOT_FOUND`, `REQ_EXPORT_NETWORK_ERROR`, `REQ_EXPORT_INVALID`, `REQ_TEMPLATE_MISSING`, `REQ_RENDER_FAILED`, and `REQ_WRITE_FAILED`.
+
 ## Output Checklist
 
 - `## 项目名称 *`
@@ -116,7 +201,7 @@ Generate `inputs/req.md` for a project by synthesizing the user's description an
 - `## 核心功能 *`
 - `## 非功能需求`
 - `## 测试用例`
-- `## 部署域名`
+- `## 部署域名` for bundled draft template, or `## 部署 *` for piflow-cli export template
 - `## 鉴权方案`
 - `## 技术约束`
 - `## 其他说明`
