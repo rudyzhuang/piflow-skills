@@ -1,0 +1,7 @@
+interface:
+  display_name: "Plan Doc Maker"
+  short_description: "生成方案文档，并多轮评审修订至已评审状态"
+  default_prompt: "Use $plan-doc-maker to create a project plan document in docs/plans, review it against the current repo, revise it until approved, then commit and push when available."
+
+policy:
+  allow_implicit_invocation: true
