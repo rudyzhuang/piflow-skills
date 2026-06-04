@@ -1,0 +1,7 @@
+interface:
+  display_name: "Req Reviewer"
+  short_description: "评审并修订 inputs/req.md，直到需求状态为已评审"
+  default_prompt: "Use $req-reviewer to review inputs/req.md against my sources, revise it until it passes, mark it 已评审, then commit and push when available."
+
+policy:
+  allow_implicit_invocation: true
