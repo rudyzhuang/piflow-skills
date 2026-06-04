@@ -5,7 +5,7 @@ import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
 const skillDir = path.dirname(fileURLToPath(import.meta.url));
-const repoInstaller = path.resolve(skillDir, "..", "install.mjs");
+const repoInstaller = path.resolve(skillDir, "..", "..", "install.mjs");
 const result = spawnSync(process.execPath, [repoInstaller, path.basename(skillDir), ...process.argv.slice(2)], {
   stdio: "inherit",
 });

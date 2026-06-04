@@ -12,9 +12,12 @@ import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
 const REPO_ROOT = path.dirname(fileURLToPath(import.meta.url));
+const SKILLS_ROOT = path.join(REPO_ROOT, "skills");
+const PLUGIN_MANIFEST = path.join(REPO_ROOT, ".codex-plugin", "plugin.json");
 const SKIP_DIRS = new Set([".git", "__pycache__", ".pytest_cache", ".mypy_cache", ".ruff_cache"]);
 const SKIP_FILES = new Set([".DS_Store"]);
 const VALID_ONLY = new Set(["cursor", "codex", "claude"]);
+const CODEX_PERSONAL_MARKETPLACE_NAME = "personal";
 
 function windowsEnvPath(name, ...parts) {
   const value = process.env[name];
@@ -240,6 +243,140 @@ function copySkill(skillName, src, dst, dryRun) {
   fs.renameSync(tmp, dst);
 }
 
+function readJson(filePath) {
+  return JSON.parse(fs.readFileSync(filePath, "utf8"));
+}
+
+function writeJson(filePath, payload) {
+  fs.mkdirSync(path.dirname(filePath), { recursive: true });
+  fs.writeFileSync(filePath, `${JSON.stringify(payload, null, 2)}\n`);
+}
+
+function readPluginManifest() {
+  if (!pathExists(PLUGIN_MANIFEST)) {
+    return null;
+  }
+  const manifest = readJson(PLUGIN_MANIFEST);
+  if (!manifest || typeof manifest !== "object" || typeof manifest.name !== "string" || !manifest.name.trim()) {
+    throw new Error(`${PLUGIN_MANIFEST} must contain a non-empty string "name"`);
+  }
+  return manifest;
+}
+
+function buildCodexPluginPaths(pluginName) {
+  const home = os.homedir();
+  return {
+    pluginDestination: path.join(home, "plugins", pluginName),
+    marketplacePath: path.join(home, ".agents", "plugins", "marketplace.json"),
+  };
+}
+
+function defaultMarketplace() {
+  return {
+    name: CODEX_PERSONAL_MARKETPLACE_NAME,
+    interface: {
+      displayName: "Personal",
+    },
+    plugins: [],
+  };
+}
+
+function buildMarketplaceEntry(pluginName, category) {
+  return {
+    name: pluginName,
+    source: {
+      source: "local",
+      path: `./plugins/${pluginName}`,
+    },
+    policy: {
+      installation: "AVAILABLE",
+      authentication: "ON_INSTALL",
+    },
+    category,
+  };
+}
+
+function updateCodexMarketplace(manifest, marketplacePath, dryRun) {
+  const pluginName = manifest.name;
+  const category = manifest.interface?.category || "Productivity";
+  const nextEntry = buildMarketplaceEntry(pluginName, category);
+
+  if (dryRun) {
+    return;
+  }
+
+  const marketplace = pathExists(marketplacePath) ? readJson(marketplacePath) : defaultMarketplace();
+  if (!marketplace || typeof marketplace !== "object") {
+    throw new Error(`${marketplacePath} must contain a JSON object`);
+  }
+  if (!marketplace.name) {
+    marketplace.name = CODEX_PERSONAL_MARKETPLACE_NAME;
+  }
+  if (!marketplace.interface || typeof marketplace.interface !== "object") {
+    marketplace.interface = { displayName: "Personal" };
+  }
+  if (!Array.isArray(marketplace.plugins)) {
+    marketplace.plugins = [];
+  }
+
+  const existingIndex = marketplace.plugins.findIndex((entry) => entry?.name === pluginName);
+  if (existingIndex >= 0) {
+    marketplace.plugins[existingIndex] = nextEntry;
+  } else {
+    marketplace.plugins.push(nextEntry);
+  }
+
+  writeJson(marketplacePath, marketplace);
+}
+
+function runCodexPluginAdd(pluginName, dryRun) {
+  const commandName = process.platform === "win32" ? "codex.cmd" : "codex";
+  const codex = which(commandName) || which("codex");
+  const spec = `${pluginName}@${CODEX_PERSONAL_MARKETPLACE_NAME}`;
+
+  if (!codex) {
+    console.log(`SKIP Codex plugin enable: codex command not found; marketplace entry was written for ${spec}`);
+    return;
+  }
+
+  if (dryRun) {
+    console.log(`WOULD RUN ${codex} plugin add ${spec}`);
+    return;
+  }
+
+  const result = spawnSync(codex, ["plugin", "add", spec], {
+    encoding: "utf8",
+    stdio: "pipe",
+    timeout: 30000,
+  });
+
+  const output = `${result.stdout || ""}${result.stderr || ""}`.trim();
+  if (result.status !== 0) {
+    throw new Error(`codex plugin add ${spec} failed${output ? `:\n${output}` : ""}`);
+  }
+  if (output) {
+    console.log(output);
+  }
+}
+
+function installCodexPlugin(mode, dryRun) {
+  const manifest = readPluginManifest();
+  if (!manifest) {
+    return 0;
+  }
+
+  const pluginName = manifest.name;
+  const { pluginDestination, marketplacePath } = buildCodexPluginPaths(pluginName);
+  const action = dryRun ? "WOULD INSTALL" : "INSTALL";
+
+  console.log(`${action} plugin ${pluginName} -> Codex: ${pluginDestination} (${mode})`);
+  installSkill(pluginName, REPO_ROOT, pluginDestination, mode, dryRun);
+  console.log(`${action} marketplace entry ${pluginName} -> ${marketplacePath}`);
+  updateCodexMarketplace(manifest, marketplacePath, dryRun);
+  runCodexPluginAdd(pluginName, dryRun);
+  return 1;
+}
+
 function installSkill(skillName, src, dst, mode, dryRun) {
   if (mode === "copy") {
     copySkill(skillName, src, dst, dryRun);
@@ -249,10 +386,10 @@ function installSkill(skillName, src, dst, mode, dryRun) {
 }
 
 function findSkills() {
-  return fs.readdirSync(REPO_ROOT, { withFileTypes: true })
+  return fs.readdirSync(SKILLS_ROOT, { withFileTypes: true })
     .filter((entry) => entry.isDirectory())
     .map((entry) => entry.name)
-    .filter((name) => fs.existsSync(path.join(REPO_ROOT, name, "SKILL.md")))
+    .filter((name) => fs.existsSync(path.join(SKILLS_ROOT, name, "SKILL.md")))
     .sort();
 }
 
@@ -261,7 +398,7 @@ function validateSkillName(name) {
     throw new Error(`Invalid skill name: ${name}`);
   }
 
-  const skillRoot = path.join(REPO_ROOT, name);
+  const skillRoot = path.join(SKILLS_ROOT, name);
   const skillFile = path.join(skillRoot, "SKILL.md");
   if (!pathExists(skillFile)) {
     throw new Error(`Cannot find skill "${name}" at ${skillFile}`);
@@ -352,7 +489,7 @@ function parseArgs(argv) {
 function selectedSkills(args) {
   const names = args.allSkills || args.skills.length === 0 ? findSkills() : args.skills;
   if (names.length === 0) {
-    throw new Error(`No skills found under ${REPO_ROOT}`);
+    throw new Error(`No skills found under ${SKILLS_ROOT}`);
   }
   return names.map(validateSkillName);
 }
@@ -387,6 +524,10 @@ function main() {
       installSkill(skill.name, skill.root, target.destination, mode, args.dryRun);
       installed += 1;
     }
+  }
+
+  if (selectedTargets.size === 0 || selectedTargets.has("codex")) {
+    installed += installCodexPlugin(mode, args.dryRun);
   }
 
   if (installed === 0) {

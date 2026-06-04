@@ -1,0 +1,18 @@
+{
+  "name": "piflow-skills",
+  "version": "0.1.0",
+  "description": "Piflow Skills plugin",
+  "author": {
+    "name": "Local developer"
+  },
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Piflow Skills",
+    "shortDescription": "Use Piflow Skills in Codex.",
+    "longDescription": "Piflow Skills adds a local Codex plugin scaffold.",
+    "developerName": "Local developer",
+    "category": "Productivity",
+    "capabilities": [],
+    "defaultPrompt": "Help me use Piflow Skills."
+  }
+}
