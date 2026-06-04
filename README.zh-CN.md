@@ -2,9 +2,9 @@
 
 面向 Cursor、Codex 和 Claude Code 的个人 Agent Skills 集合。
 
-这个仓库把多个 skill 放在同一个代码库中，并通过根目录统一安装器
+本仓库把多个 skill 统一放在一个代码库中，并通过根目录的统一安装器
 `install.mjs` 安装或同步到本机各 Agent 的 skill 目录。可安装的 skill
-都位于 `skills/<skill-name>/`。
+都位于 `skills/<skill-name>/` 下。
 
 英文版文档见 [README.md](./README.md)。
 
@@ -27,7 +27,7 @@
 | Codex | `~/.codex/skills/<skill-name>` |
 | Claude Code | `~/.claude/skills/<skill-name>` |
 
-默认安装方式是创建符号链接，从 Agent 的 skill 目录指回本仓库。这样本机只需要维护一份源码。移动仓库位置后，需要重新运行安装器。
+默认安装方式是创建符号链接，从 Agent 的 skill 目录指回本仓库。这样本机只需要维护一份可编辑源码。移动仓库位置后，需要重新运行安装器。
 
 安装前，如果目标位置已存在同名 skill，会先移除旧安装，再替换为当前版本。
 
@@ -99,7 +99,7 @@ cd skills/req-maker
 node install.mjs
 ```
 
-这些本地安装脚本只是兼容 wrapper。共享安装逻辑只维护在仓库根目录 `install.mjs` 中。
+这些本地安装脚本只是兼容 wrapper。共享安装逻辑只维护在仓库根目录的 `install.mjs` 中。
 
 如果要安装所有 skills，请在仓库根目录运行：
 
@@ -132,7 +132,7 @@ node install.mjs --all-skills
 如果你的 Agent 支持显式点名 skill，也可以这样写：
 
 ```text
-Use $req-maker to turn this spec into inputs/req.md.
+使用 $req-maker，把这份规格说明整理成 inputs/req.md。
 ```
 
 ## 仓库结构
@@ -170,7 +170,7 @@ Use $req-maker to turn this spec into inputs/req.md.
 - 仓库根目录安装器需要 Node.js。
 - Python 是可选的。`skills/req-maker/install.py` 只是兼容 wrapper，会调用根目录 Node.js 安装器。
 - `commit-push` 使用 `git`；可选的 GitHub remote 自动创建能力需要 `gh` 和已认证的 GitHub 账号。
-- Codex plugin 安装的最后一步需要 `codex` 命令执行 `codex plugin add`。如果没有该命令，安装器仍会写入 marketplace 条目。
+- Codex plugin 安装的最后一步需要通过 `codex` 命令执行 `codex plugin add`。如果没有该命令，安装器仍会写入 marketplace 条目。
 
 ## 开发说明
 
