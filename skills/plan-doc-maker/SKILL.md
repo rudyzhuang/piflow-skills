@@ -66,8 +66,11 @@ Create project-local plan documents in `docs/plans/`, maintain each target proje
    - If `plan_index.md` does not exist, read every Markdown file in the directory one by one except `plan_index.md` itself. Do not rely only on filenames or summaries.
    - If `plan_index.md` already exists, read it first, extract its referenced source document list, then read every Markdown file in the directory that has not yet been integrated. Also re-read any referenced source document whose path still exists if a status or contradiction cannot be resolved from `plan_index.md` alone.
    - Integrate content by modification point, not by source document. A modification point is a distinct proposed change, implementation step, migration, interface change, operational change, or verification obligation.
+   - When multiple plan documents under the same target project affect the same feature, module, contract, workflow, data model, stage, API, UI flow, migration, verification obligation, or operational behavior, integrate the overlapping work into one modification point instead of creating separate points per source document.
+   - Preserve every contributing source document reference on the merged modification point. The merged point must explain the final scope, current conclusion, dependencies, and acceptance criteria after consolidation.
    - Deduplicate semantically equivalent modification points across source documents. Preserve references to every source document that contributed to the merged point.
-   - Resolve contradictions and inconsistencies in the integrated content. Prefer the newest reviewed source when documents conflict, unless project contracts show that an older source is safer or the newer source is incomplete. Record the resolution and source references in the modification point.
+   - Resolve contradictions and inconsistencies in the integrated content. Review conflicting designs from reasonableness, correctness, internal consistency, project contract compatibility, implementation risk, rollout safety, and testability before choosing the final consolidated design. Prefer the newest reviewed source when documents conflict only if it is also technically sound and compatible; otherwise choose the safer and more correct option, or synthesize a compatible alternative. Record the decision, rationale, rejected alternatives, and source references in the modification point and `## 4. 矛盾与去重处理`.
+   - If a conflict cannot be resolved confidently from repository evidence and plan context, ask the user to choose before finalizing `plan_index.md`. Present each option with pros, cons, risks, and a recommended choice. Mark the affected modification point `评审状态: 需修订` until the user decision is incorporated.
    - Keep original plan documents unchanged. `plan_index.md` must cite them instead of replacing them.
    - Add newly integrated modification points with `活跃状态: 活跃`, `评审状态: 待评审`, and `执行状态: 未执行` unless the source and local evidence prove a different state.
    - Update existing modification points without erasing their review or execution history. If a newly integrated source materially changes an existing point, set that point back to `评审状态: 待评审` and keep the execution status accurate.
@@ -236,7 +239,9 @@ title: <项目名称> plan_index
 
 - Use stable IDs such as `LP-001`, `LP-002`, and do not renumber existing points.
 - Merge duplicates into the older stable ID unless the newer point is materially broader and better supported.
+- Merge cross-document overlaps into one modification point whenever multiple source plans touch the same implementation surface or decision. Do not split one real change into multiple points merely because it appears in multiple documents.
 - A modification point can cite multiple source documents.
+- When a modification point cites multiple source documents, its `当前结论` must be the consolidated final decision, not a list of competing proposals.
 - Every modification point must include:
   - source references
   - `活跃状态`
@@ -247,6 +252,7 @@ title: <项目名称> plan_index
   - acceptance criteria or verification method
   - status history
 - If a source document changes the intended design, status, dependencies, or acceptance criteria of an existing point, append a status history entry and update the point. Do not silently overwrite the previous conclusion.
+- If source documents conflict, record the conflict and resolution in the modification point status history and in `## 4. 矛盾与去重处理`. Include the chosen option, why it is reasonable/correct/consistent, which alternatives were rejected, and whether user confirmation was required.
 - After a successful `plan_index.md` review pass, every active modification point that was validated by that pass must be marked `评审状态: 已评审`.
 - Modification points marked `活跃状态: 已废弃` or `活跃状态: 已替代` must preserve their source references and history, but they do not count toward overall review or execution status. Record the reason and replacement point ID when applicable.
 
@@ -281,6 +287,8 @@ Each review pass must check:
 - Completeness: background, goals, scope, non-goals, design, rollout, tests, acceptance criteria, risks, and rollback are covered when relevant.
 - Reasonableness: the plan is technically feasible and scoped to the observed project.
 - Internal consistency: terminology, dependencies, timelines, stages, and assumptions do not contradict each other.
+- Cross-document consolidation: overlapping changes from multiple source plans under the same project are merged into one modification point with all source references preserved.
+- Conflict resolution quality: contradictory designs are evaluated for reasonableness, correctness, consistency, compatibility, implementation risk, rollout safety, and testability; unresolved high-impact choices are escalated to the user with options, pros, cons, and a recommendation.
 - Contract compatibility: public APIs, data formats, config, environment variables, CLI behavior, database schema, generated files, tests, and deployment expectations remain compatible or have explicit migration steps.
 - Operational safety: rollout, monitoring, fallback, rollback, and data safety are addressed for risky changes.
 - Testability: the plan includes concrete verification steps and acceptance criteria.
