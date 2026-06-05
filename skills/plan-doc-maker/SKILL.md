@@ -11,9 +11,15 @@ Create project-local plan documents in `docs/plans/`, maintain each target proje
 
 ## Workflow
 
-1. Locate the target project root or roots.
-   - If the user explicitly provides an output path for the generated plan document, use that path and infer its project root from the nearest containing git repository, falling back to the current workspace root.
+1. Locate and validate the target project root or roots. This is the highest-priority gate.
+   - If the user explicitly provides an output path for the generated plan document, treat it as a requested candidate path, infer its project root from the nearest containing git repository, and still validate that the path matches the actual target project before writing or updating it.
    - If the user does not provide an output path, first determine which project the plan modifies or implements from the request, current directory, git repository boundaries, mentioned files, package or service names, workspace layout, and nearby project metadata.
+   - Treat "which project is being modified or implemented" as more important than "where the source evidence came from" or "where the current file happens to live".
+   - Runtime artifacts, logs, screenshots, output directories, `.pipeline/`, `output-stages/`, issue samples, failing app worktrees, and copied snippets are evidence sources. They do not by themselves make their containing project the target project.
+   - If a plan uses one project as an example but proposes changes to another project's framework, skill, pipeline, CLI, generator, review rule, deployment system, or shared tooling, the target project is the tool/framework project, not the sample project.
+   - If an existing plan document is being reviewed or consolidated, verify that the document path is under the actual target project's `docs/plans/` before reviewing content, maintaining `last_plan.md`, or changing statuses.
+   - If the document path and actual target project do not match, stop the normal review/consolidation flow for that path. Report the path mismatch first, recommend or perform the move only if requested, and do not create, update, review, commit, or push `last_plan.md` in the wrong project.
+   - Example: a plan stored under `piflow-online/docs/plans/` that uses `piflow-online/output-stages` as failure evidence but proposes changes to `piflow` codegen, code-review, watchdog, recovery, artifact schemas, or deterministic checks belongs under `piflow/docs/plans/`.
    - If the request spans multiple projects, split the work by project. Generate and maintain a separate plan document and `last_plan.md` under each project's own `<project-root>/docs/plans/`.
    - Prefer explicit project paths or named projects over the current git repository root.
    - If the target project remains ambiguous after inspecting local context, proceed with the most likely project root and record the assumption in the document instead of blocking, unless writing to the wrong project would be unsafe.
@@ -25,13 +31,14 @@ Create project-local plan documents in `docs/plans/`, maintain each target proje
    - If the plan modifies or upgrades an existing project, identify relevant compatibility surfaces: public APIs, CLI commands, file formats, database schema, environment variables, authentication, permissions, deployment behavior, tests, and migration paths.
    - If important context is unavailable, continue with explicit assumptions instead of blocking unless the missing fact would make the plan unsafe.
 
-3. Choose the output path for each target project.
+3. Choose and validate the output path for each target project.
    - Create `<project-root>/docs/plans/` if needed.
    - Use local time for the file prefix, formatted as `<yyyymmdd-HHmm>`.
    - Generate a short ASCII lowercase slug for the main proposal purpose, such as `auth-upgrade`, `api-refactor`, `billing-migration`, or `plan-doc-maker`.
    - Write to `<project-root>/docs/plans/<yyyymmdd-HHmm>-<proposal>.md`.
    - If the target file already exists, append a short disambiguator such as `-v2`.
    - When multiple projects are involved, choose a slug that is meaningful within each project and do not put all project plans into a single shared `docs/plans/` directory unless the user explicitly provided such a path.
+   - Before writing or updating any file, re-check that the chosen output path is inside the actual target project's `docs/plans/`.
 
 4. Draft the first version.
    - Load this skill's bundled template from `assets/plan-template.md` and use it as the default starting structure.
@@ -73,6 +80,8 @@ Create project-local plan documents in `docs/plans/`, maintain each target proje
    - Stop only when the review passes. Then recompute the overall `文档状态`, `评审状态`, and `执行状态` from the per-point statuses, and update `last_plan.md` metadata and review record to reflect the completed review count and latest modification time.
 
 9. Verify and finalize.
+   - Confirm the actual target project root was identified before any document path, content, `last_plan.md`, or status checks were accepted.
+   - Confirm each generated or reviewed plan file is under the actual target project's `docs/plans/`, not merely under the project that supplied evidence or runtime artifacts.
    - Confirm each generated plan file exists under its target project's `docs/plans/`.
    - Confirm generated plan filenames follow `<yyyymmdd-HHmm>-<proposal>.md`.
    - Confirm each target project's `docs/plans/last_plan.md` exists after the run.
