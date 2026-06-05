@@ -1,0 +1,7 @@
+interface:
+  display_name: "Plan Executor"
+  short_description: "按方案逐项落地、评审、回写状态并推送"
+  default_prompt: "Use $plan-executor to execute the pending items in docs/plans/last_plan.md, review each change, update statuses, then commit and push after all items are complete."
+
+policy:
+  allow_implicit_invocation: true
