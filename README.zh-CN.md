@@ -14,7 +14,7 @@
 | --- | --- | --- |
 | `req-maker` | 从用户提示、文档、规格说明、截图、Figma Make `.make` 本地包或 PiFlow `req-md-export` 数据中提炼需求，生成中文 PiFlow 风格 `inputs/req.md`，并执行评审循环。 | `skills/req-maker/SKILL.md`, `skills/req-maker/assets/req-template.md`, `skills/req-maker/scripts/figma-make-summary.mjs`, `skills/req-maker/scripts/export-req-md.mjs` |
 | `req-reviewer` | 评审并修订已有中文需求文档，尤其是 `inputs/req.md`，直到通过来源覆盖、质量、一致性、feature ID、多客户端契约、兼容性和可测试性检查。 | `skills/req-reviewer/SKILL.md`, `skills/req-reviewer/agents/openai.yaml` |
-| `plan-doc-maker` | 在项目本地 `docs/plans/` 下生成已评审的中文方案文档，并维护去重后的 `last_plan.md` 执行索引。 | `skills/plan-doc-maker/SKILL.md`, `skills/plan-doc-maker/assets/plan-template.md`, `skills/plan-doc-maker/agents/openai.yaml` |
+| `plan-doc-maker` | 在项目本地 `docs/plans/` 下生成已评审的中文方案文档，并维护去重后的 `plan_index.md` 执行索引。 | `skills/plan-doc-maker/SKILL.md`, `skills/plan-doc-maker/assets/plan-template.md`, `skills/plan-doc-maker/agents/openai.yaml` |
 | `commit-push` | 将“提交并推送”固化为可重复 Git 流程：检查变更、归纳提交意图、可选升版、commit、push，并可选创建缺失的 GitHub remote。 | `skills/commit-push/SKILL.md`, `skills/commit-push/scripts/commit_push.cjs`, `skills/commit-push/scripts/github_remote.cjs` |
 
 ## 支持的 Agent

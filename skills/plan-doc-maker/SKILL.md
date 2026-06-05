@@ -1,13 +1,13 @@
 ---
 name: plan-doc-maker
-description: Generate Chinese proposal, solution, architecture, implementation, migration, refactor, or upgrade plan documents under project-local docs/plans/, and maintain a reviewed docs/plans/last_plan.md execution index. Use when the user asks to 写方案, 生成方案, 形成方案, 给出方案, create, draft, review, refine, merge, consolidate, or finalize a 方案文档, 技术方案, 实施方案, 改造方案, 升级方案, 迁移方案, 架构方案, last_plan.md, or project plan, especially when the plan must be reviewed against the current repository before being marked reviewed and committed or pushed.
+description: Generate Chinese proposal, solution, architecture, implementation, migration, refactor, or upgrade plan documents under project-local docs/plans/, and maintain a reviewed docs/plans/plan_index.md execution index. Use when the user asks to 写方案, 生成方案, 形成方案, 给出方案, create, draft, review, refine, merge, consolidate, or finalize a 方案文档, 技术方案, 实施方案, 改造方案, 升级方案, 迁移方案, 架构方案, plan_index.md, or project plan, especially when the plan must be reviewed against the current repository before being marked reviewed and committed or pushed.
 ---
 
 # Plan Doc Maker
 
 ## Overview
 
-Create project-local plan documents in `docs/plans/`, maintain each target project's `docs/plans/last_plan.md` as the deduplicated and reviewed execution index, then run mandatory review-and-revision loops until the plan set is reasonable, complete, internally consistent, and compatible with the current project contracts. Write in Chinese unless the user asks for another language.
+Create project-local plan documents in `docs/plans/`, maintain each target project's `docs/plans/plan_index.md` as the deduplicated and reviewed execution index, then run mandatory review-and-revision loops until the plan set is reasonable, complete, internally consistent, and compatible with the current project contracts. Write in Chinese unless the user asks for another language.
 
 ## Workflow
 
@@ -17,10 +17,10 @@ Create project-local plan documents in `docs/plans/`, maintain each target proje
    - Treat "which project is being modified or implemented" as more important than "where the source evidence came from" or "where the current file happens to live".
    - Runtime artifacts, logs, screenshots, output directories, `.pipeline/`, `output-stages/`, issue samples, failing app worktrees, and copied snippets are evidence sources. They do not by themselves make their containing project the target project.
    - If a plan uses one project as an example but proposes changes to another project's framework, skill, pipeline, CLI, generator, review rule, deployment system, or shared tooling, the target project is the tool/framework project, not the sample project.
-   - If an existing plan document is being reviewed or consolidated, verify that the document path is under the actual target project's `docs/plans/` before reviewing content, maintaining `last_plan.md`, or changing statuses.
-   - If the document path and actual target project do not match, stop the normal review/consolidation flow for that path. Report the path mismatch first, recommend or perform the move only if requested, and do not create, update, review, commit, or push `last_plan.md` in the wrong project.
+   - If an existing plan document is being reviewed or consolidated, verify that the document path is under the actual target project's `docs/plans/` before reviewing content, maintaining `plan_index.md`, or changing statuses.
+   - If the document path and actual target project do not match, stop the normal review/consolidation flow for that path. Report the path mismatch first, recommend or perform the move only if requested, and do not create, update, review, commit, or push `plan_index.md` in the wrong project.
    - Example: a plan stored under `piflow-online/docs/plans/` that uses `piflow-online/output-stages` as failure evidence but proposes changes to `piflow` codegen, code-review, watchdog, recovery, artifact schemas, or deterministic checks belongs under `piflow/docs/plans/`.
-   - If the request spans multiple projects, split the work by project. Generate and maintain a separate plan document and `last_plan.md` under each project's own `<project-root>/docs/plans/`.
+   - If the request spans multiple projects, split the work by project. Generate and maintain a separate plan document and `plan_index.md` under each project's own `<project-root>/docs/plans/`.
    - Prefer explicit project paths or named projects over the current git repository root.
    - If the target project remains ambiguous after inspecting local context, proceed with the most likely project root and record the assumption in the document instead of blocking, unless writing to the wrong project would be unsafe.
    - If no git repository exists, use the current workspace root.
@@ -59,36 +59,36 @@ Create project-local plan documents in `docs/plans/`, maintain each target proje
    - Stop only when the review passes.
    - When the review passes, update the document status to `已评审` and refresh the modified time.
 
-7. Maintain `last_plan.md` for each target project after generating or updating project plans.
+7. Maintain `plan_index.md` for each target project after generating or updating project plans.
    - Work in that project's `<project-root>/docs/plans/` directory.
-   - After the project plan document has been generated or updated and reviewed, check for `<project-root>/docs/plans/last_plan.md`.
+   - After the project plan document has been generated or updated and reviewed, check for `<project-root>/docs/plans/plan_index.md`.
    - If the user asks only to maintain, review, or consolidate existing plans without creating a new plan, still run this step for the target project.
-   - If `last_plan.md` does not exist, read every Markdown file in the directory one by one except `last_plan.md` itself. Do not rely only on filenames or summaries.
-   - If `last_plan.md` already exists, read it first, extract its referenced source document list, then read every Markdown file in the directory that has not yet been integrated. Also re-read any referenced source document whose path still exists if a status or contradiction cannot be resolved from `last_plan.md` alone.
+   - If `plan_index.md` does not exist, read every Markdown file in the directory one by one except `plan_index.md` itself. Do not rely only on filenames or summaries.
+   - If `plan_index.md` already exists, read it first, extract its referenced source document list, then read every Markdown file in the directory that has not yet been integrated. Also re-read any referenced source document whose path still exists if a status or contradiction cannot be resolved from `plan_index.md` alone.
    - Integrate content by modification point, not by source document. A modification point is a distinct proposed change, implementation step, migration, interface change, operational change, or verification obligation.
    - Deduplicate semantically equivalent modification points across source documents. Preserve references to every source document that contributed to the merged point.
    - Resolve contradictions and inconsistencies in the integrated content. Prefer the newest reviewed source when documents conflict, unless project contracts show that an older source is safer or the newer source is incomplete. Record the resolution and source references in the modification point.
-   - Keep original plan documents unchanged. `last_plan.md` must cite them instead of replacing them.
+   - Keep original plan documents unchanged. `plan_index.md` must cite them instead of replacing them.
    - Add newly integrated modification points with `活跃状态: 活跃`, `评审状态: 待评审`, and `执行状态: 未执行` unless the source and local evidence prove a different state.
    - Update existing modification points without erasing their review or execution history. If a newly integrated source materially changes an existing point, set that point back to `评审状态: 待评审` and keep the execution status accurate.
 
-8. Review `last_plan.md` after every maintenance pass.
-   - Run the same review-and-revision loop on `last_plan.md`: review, apply fixes, review again, and repeat until it passes.
-   - The `last_plan.md` review must additionally check source coverage, deduplication quality, contradiction resolution, per-point status consistency, and whether all newly integrated Markdown files are referenced.
+8. Review `plan_index.md` after every maintenance pass.
+   - Run the same review-and-revision loop on `plan_index.md`: review, apply fixes, review again, and repeat until it passes.
+   - The `plan_index.md` review must additionally check source coverage, deduplication quality, contradiction resolution, per-point status consistency, and whether all newly integrated Markdown files are referenced.
    - When review finds a modification point incomplete, contradictory, unsafe, or untestable, mark that point `评审状态: 需修订`, apply the required fix, and review again.
    - When the review pass validates an active modification point, mark that point `评审状态: 已评审`.
-   - Stop only when the review passes. Then recompute the overall `文档状态`, `评审状态`, and `执行状态` from the per-point statuses, and update `last_plan.md` metadata and review record to reflect the completed review count and latest modification time.
+   - Stop only when the review passes. Then recompute the overall `文档状态`, `评审状态`, and `执行状态` from the per-point statuses, and update `plan_index.md` metadata and review record to reflect the completed review count and latest modification time.
 
 9. Verify and finalize.
-   - Confirm the actual target project root was identified before any document path, content, `last_plan.md`, or status checks were accepted.
+   - Confirm the actual target project root was identified before any document path, content, `plan_index.md`, or status checks were accepted.
    - Confirm each generated or reviewed plan file is under the actual target project's `docs/plans/`, not merely under the project that supplied evidence or runtime artifacts.
    - Confirm each generated plan file exists under its target project's `docs/plans/`.
    - Confirm generated plan filenames follow `<yyyymmdd-HHmm>-<proposal>.md`.
-   - Confirm each target project's `docs/plans/last_plan.md` exists after the run.
-   - Confirm every Markdown file in each target `docs/plans/` directory, except `last_plan.md`, is either referenced from `last_plan.md` or explicitly listed as intentionally excluded with a reason.
+   - Confirm each target project's `docs/plans/plan_index.md` exists after the run.
+   - Confirm every Markdown file in each target `docs/plans/` directory, except `plan_index.md`, is either referenced from `plan_index.md` or explicitly listed as intentionally excluded with a reason.
    - Confirm metadata blocks, table of contents, plan sections, review notes or review summaries, and final reviewed status fields are present.
    - Confirm no template placeholders such as `<方案标题>`, `<YYYY-MM-DD HH:mm>`, or instructional placeholder text remain in final documents.
-   - If the local project is a git repository, commit generated or updated plan documents and `last_plan.md`.
+   - If the local project is a git repository, commit generated or updated plan documents and `plan_index.md`.
    - If a remote for the current branch is configured and reachable, push the commit. If there is no remote, no upstream, or push is unsafe, leave the commit local and report why.
 
 ## Document Structure
@@ -161,9 +161,9 @@ title: <方案标题>
   - `评审轮次: <actual completed review count>`
   - `修改时间: <latest local time>`
 
-## `last_plan.md` Rules
+## `plan_index.md` Rules
 
-`last_plan.md` is the project-level, deduplicated plan index for `docs/plans/`. It is maintained after generating project plan documents and is reviewed with the same rigor as an individual plan.
+`plan_index.md` is the project-level, deduplicated plan index for `docs/plans/`. It is maintained after generating project plan documents and is reviewed with the same rigor as an individual plan.
 
 ### Required Purpose
 
@@ -174,11 +174,11 @@ title: <方案标题>
 
 ### Required Structure
 
-Use this structure unless the existing `last_plan.md` already has a richer compatible structure. Preserve useful existing fields while ensuring these sections exist:
+Use this structure unless the existing `plan_index.md` already has a richer compatible structure. Preserve useful existing fields while ensuring these sections exist:
 
 ```markdown
 ---
-title: <项目名称> last_plan
+title: <项目名称> plan_index
 版本: 1.0.0
 文档状态: 草稿 | 部分评审 | 全部评审 | 部分执行 | 全部执行 | 需修订
 评审状态: 待评审 | 部分评审 | 全部评审 | 需修订
@@ -190,7 +190,7 @@ title: <项目名称> last_plan
 评审结果: 待评审 | 需修订 | 通过
 ---
 
-# <项目名称> last_plan
+# <项目名称> plan_index
 
 ## 目录
 
@@ -230,7 +230,7 @@ title: <项目名称> last_plan
 - `## 2. 来源文档` must list every Markdown file in `docs/plans/` that has been integrated, with relative links.
 - If a Markdown file is intentionally excluded, list it in a separate `未纳入文档` subsection with a reason.
 - When a source file is renamed or deleted, keep the historical reference and note that the file is missing or superseded.
-- Never paste entire source plans into `last_plan.md`; summarize the modification points and link to the originals.
+- Never paste entire source plans into `plan_index.md`; summarize the modification points and link to the originals.
 
 ### Modification Point Rules
 
@@ -247,7 +247,7 @@ title: <项目名称> last_plan
   - acceptance criteria or verification method
   - status history
 - If a source document changes the intended design, status, dependencies, or acceptance criteria of an existing point, append a status history entry and update the point. Do not silently overwrite the previous conclusion.
-- After a successful `last_plan.md` review pass, every active modification point that was validated by that pass must be marked `评审状态: 已评审`.
+- After a successful `plan_index.md` review pass, every active modification point that was validated by that pass must be marked `评审状态: 已评审`.
 - Modification points marked `活跃状态: 已废弃` or `活跃状态: 已替代` must preserve their source references and history, but they do not count toward overall review or execution status. Record the reason and replacement point ID when applicable.
 
 ### Status Consistency Rules
@@ -285,7 +285,7 @@ Each review pass must check:
 - Operational safety: rollout, monitoring, fallback, rollback, and data safety are addressed for risky changes.
 - Testability: the plan includes concrete verification steps and acceptance criteria.
 
-Record individual plan review results in `## 9. 评审记录` as concise entries. Record `last_plan.md` review results in its `## 5. 评审记录` section using the same entry shape:
+Record individual plan review results in `## 9. 评审记录` as concise entries. Record `plan_index.md` review results in its `## 5. 评审记录` section using the same entry shape:
 
 ```markdown
 ### 第 N 轮评审
@@ -312,7 +312,7 @@ Report:
 
 - The target project path or paths.
 - The generated or updated plan document path or paths.
-- The `last_plan.md` path for each target project.
-- The final status and review round count for generated plans and `last_plan.md`.
+- The `plan_index.md` path for each target project.
+- The final status and review round count for generated plans and `plan_index.md`.
 - Whether git commit and push were performed, including the commit hash when available.
 - Any assumptions or important gaps that remain.
