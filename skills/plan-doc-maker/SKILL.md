@@ -1,6 +1,6 @@
 ---
 name: plan-doc-maker
-description: Generate Chinese proposal, solution, architecture, implementation, migration, refactor, or upgrade plan documents under docs/plans/ from user requests. Use when the user asks to 写方案, 生成方案, 形成方案, 给出方案, create, draft, review, refine, or finalize a 方案文档, 技术方案, 实施方案, 改造方案, 升级方案, 迁移方案, 架构方案, or project plan, especially when the plan must be reviewed against the current repository before being marked reviewed and committed or pushed.
+description: Generate Chinese proposal, solution, architecture, implementation, migration, refactor, or upgrade plan documents under project-local docs/plans/, and maintain a reviewed docs/plans/last_plan.md execution index. Use when the user asks to 写方案, 生成方案, 形成方案, 给出方案, create, draft, review, refine, merge, consolidate, or finalize a 方案文档, 技术方案, 实施方案, 改造方案, 升级方案, 迁移方案, 架构方案, last_plan.md, or project plan, especially when the plan must be reviewed against the current repository before being marked reviewed and committed or pushed.
 ---
 
 # Plan Doc Maker
@@ -54,14 +54,15 @@ Create project-local plan documents in `docs/plans/`, maintain each target proje
 
 7. Maintain `last_plan.md` for each target project after generating or updating project plans.
    - Work in that project's `<project-root>/docs/plans/` directory.
-   - After the project plan document has been generated and reviewed, check for `<project-root>/docs/plans/last_plan.md`.
+   - After the project plan document has been generated or updated and reviewed, check for `<project-root>/docs/plans/last_plan.md`.
+   - If the user asks only to maintain, review, or consolidate existing plans without creating a new plan, still run this step for the target project.
    - If `last_plan.md` does not exist, read every Markdown file in the directory one by one except `last_plan.md` itself. Do not rely only on filenames or summaries.
    - If `last_plan.md` already exists, read it first, extract its referenced source document list, then read every Markdown file in the directory that has not yet been integrated. Also re-read any referenced source document whose path still exists if a status or contradiction cannot be resolved from `last_plan.md` alone.
    - Integrate content by modification point, not by source document. A modification point is a distinct proposed change, implementation step, migration, interface change, operational change, or verification obligation.
    - Deduplicate semantically equivalent modification points across source documents. Preserve references to every source document that contributed to the merged point.
    - Resolve contradictions and inconsistencies in the integrated content. Prefer the newest reviewed source when documents conflict, unless project contracts show that an older source is safer or the newer source is incomplete. Record the resolution and source references in the modification point.
    - Keep original plan documents unchanged. `last_plan.md` must cite them instead of replacing them.
-   - Add newly integrated modification points with `评审状态: 待评审` and `执行状态: 未执行` unless the source and local evidence prove a more advanced state.
+   - Add newly integrated modification points with `活跃状态: 活跃`, `评审状态: 待评审`, and `执行状态: 未执行` unless the source and local evidence prove a different state.
    - Update existing modification points without erasing their review or execution history. If a newly integrated source materially changes an existing point, set that point back to `评审状态: 待评审` and keep the execution status accurate.
 
 8. Review `last_plan.md` after every maintenance pass.
@@ -200,6 +201,7 @@ title: <项目名称> last_plan
 
 - 来源:
   - [<来源文档标题或文件名>](./<source-plan>.md)
+- 活跃状态: 活跃 | 已废弃 | 已替代
 - 评审状态: 待评审 | 已评审 | 需修订
 - 执行状态: 未执行 | 部分执行 | 已执行
 - 范围:
@@ -228,6 +230,7 @@ title: <项目名称> last_plan
 - A modification point can cite multiple source documents.
 - Every modification point must include:
   - source references
+  - `活跃状态`
   - review status
   - execution status
   - scope or affected modules
@@ -236,17 +239,19 @@ title: <项目名称> last_plan
   - status history
 - If a source document changes the intended design, status, dependencies, or acceptance criteria of an existing point, append a status history entry and update the point. Do not silently overwrite the previous conclusion.
 - After a successful `last_plan.md` review pass, every active modification point that was validated by that pass must be marked `评审状态: 已评审`.
+- Modification points marked `活跃状态: 已废弃` or `活跃状态: 已替代` must preserve their source references and history, but they do not count toward overall review or execution status. Record the reason and replacement point ID when applicable.
 
 ### Status Consistency Rules
 
+- Per-point valid active statuses are `活跃`, `已废弃`, and `已替代`.
 - Per-point valid review statuses are `待评审`, `已评审`, and `需修订`.
 - Per-point valid execution statuses are `未执行`, `部分执行`, and `已执行`.
-- Overall `评审状态` must be:
+- Overall `评审状态` must be computed from active modification points only:
   - `待评审` when no active modification point is `已评审`;
   - `部分评审` when at least one but not all active modification points are `已评审`;
   - `全部评审` only when every active modification point is `已评审`;
   - `需修订` when any active modification point is `需修订`.
-- Overall `执行状态` must be:
+- Overall `执行状态` must be computed from active modification points only:
   - `未执行` when no active modification point has execution progress;
   - `部分执行` when at least one but not all active modification points are `已执行`, or when any point is `部分执行`;
   - `全部执行` only when every active modification point is `已执行`.
@@ -296,7 +301,9 @@ Record individual plan review results in `## 9. 评审记录` as concise entries
 
 Report:
 
-- The plan document path.
-- The final status and review round count.
+- The target project path or paths.
+- The generated or updated plan document path or paths.
+- The `last_plan.md` path for each target project.
+- The final status and review round count for generated plans and `last_plan.md`.
 - Whether git commit and push were performed, including the commit hash when available.
 - Any assumptions or important gaps that remain.
