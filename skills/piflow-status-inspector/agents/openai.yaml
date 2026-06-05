@@ -1,0 +1,7 @@
+interface:
+  display_name: "PiFlow Status Inspector"
+  short_description: "读取 output-stages/stages.json 汇总当前项目运行状态"
+  default_prompt: "Use $piflow-status-inspector to check the current PiFlow project runtime status from output-stages/stages.json."
+
+policy:
+  allow_implicit_invocation: true

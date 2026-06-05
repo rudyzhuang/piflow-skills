@@ -15,7 +15,9 @@
 | `req-maker` | 从用户提示、文档、规格说明、截图、Figma Make `.make` 本地包或 PiFlow `req-md-export` 数据中提炼需求，生成中文 PiFlow 风格 `inputs/req.md`，并执行评审循环。 | `skills/req-maker/SKILL.md`, `skills/req-maker/assets/req-template.md`, `skills/req-maker/scripts/figma-make-summary.mjs`, `skills/req-maker/scripts/export-req-md.mjs` |
 | `req-reviewer` | 评审并修订已有中文需求文档，尤其是 `inputs/req.md`，直到通过来源覆盖、质量、一致性、feature ID、多客户端契约、兼容性和可测试性检查。 | `skills/req-reviewer/SKILL.md`, `skills/req-reviewer/agents/openai.yaml` |
 | `plan-doc-maker` | 在项目本地 `docs/plans/` 下生成已评审的中文方案文档，并维护去重后的 `plan_index.md` 执行索引。 | `skills/plan-doc-maker/SKILL.md`, `skills/plan-doc-maker/assets/plan-template.md`, `skills/plan-doc-maker/agents/openai.yaml` |
+| `plan-executor` | 执行用户方案、源方案文档或 `docs/plans/plan_index.md` 中的修改点，完成实现、评审、验证、状态回写、提交和推送。 | `skills/plan-executor/SKILL.md`, `skills/plan-executor/agents/openai.yaml` |
 | `commit-push` | 将“提交并推送”固化为可重复 Git 流程：检查变更、归纳提交意图、可选升版、commit、push，并可选创建缺失的 GitHub remote。 | `skills/commit-push/SKILL.md`, `skills/commit-push/scripts/commit_push.cjs`, `skills/commit-push/scripts/github_remote.cjs` |
+| `piflow-status-inspector` | 读取当前项目 `output-stages/stages.json`，汇总 PiFlow 运行状态、stage 进度、运行时间、失败次数、recovery 次数和当前 stage 子任务完成情况。 | `skills/piflow-status-inspector/SKILL.md`, `skills/piflow-status-inspector/scripts/project_status.cjs`, `skills/piflow-status-inspector/agents/openai.yaml` |
 
 ## 支持的 Agent
 
@@ -30,6 +32,10 @@
 默认安装方式是创建符号链接，从 Agent 的 skill 目录指回本仓库。这样本机只需要维护一份可编辑源码。移动仓库位置后，需要重新运行安装器。
 
 安装前，如果目标位置已存在同名 skill，会先移除旧安装，再替换为当前版本。
+
+安装前，安装器会校验每个选中的 skill。每个可安装 skill 都必须包含
+`SKILL.md`、`VERSION`、`CHANGELOG.md`、`README.md`、`README.zh-CN.md`
+和 `install.mjs`。
 
 当选择 Codex 作为安装目标，且仓库中存在 `.codex-plugin/plugin.json` 时，安装器还会把本仓库作为本地 Codex plugin 安装，更新个人 marketplace 条目，并在 `codex` 命令可用时执行 `codex plugin add`。
 
@@ -148,20 +154,55 @@ node install.mjs --all-skills
     req-maker/
       SKILL.md
       README.md
+      README.zh-CN.md
       VERSION
+      CHANGELOG.md
+      install.mjs
+      install.py
       assets/
       scripts/
     req-reviewer/
       SKILL.md
+      README.md
+      README.zh-CN.md
+      VERSION
+      CHANGELOG.md
+      install.mjs
       agents/
     plan-doc-maker/
       SKILL.md
+      README.md
+      README.zh-CN.md
+      VERSION
+      CHANGELOG.md
+      install.mjs
       assets/
+      agents/
+    plan-executor/
+      SKILL.md
+      README.md
+      README.zh-CN.md
+      VERSION
+      CHANGELOG.md
+      install.mjs
+      install.py
       agents/
     commit-push/
       SKILL.md
       README.md
+      README.zh-CN.md
       VERSION
+      CHANGELOG.md
+      install.mjs
+      scripts/
+    piflow-status-inspector/
+      SKILL.md
+      README.md
+      README.zh-CN.md
+      VERSION
+      CHANGELOG.md
+      install.mjs
+      agents/
       scripts/
 ```
 
@@ -170,10 +211,14 @@ node install.mjs --all-skills
 - 仓库根目录安装器需要 Node.js。
 - Python 是可选的。`skills/req-maker/install.py` 只是兼容 wrapper，会调用根目录 Node.js 安装器。
 - `commit-push` 使用 `git`；可选的 GitHub remote 自动创建能力需要 `gh` 和已认证的 GitHub 账号。
+- `piflow-status-inspector` 使用 Node.js 读取并解析 `output-stages/stages.json`。
 - Codex plugin 安装的最后一步需要通过 `codex` 命令执行 `codex plugin add`。如果没有该命令，安装器仍会写入 marketplace 条目。
 
 ## 开发说明
 
-- 新增 skill 时，在 `skills/` 下创建一个包含 `SKILL.md` 的目录。
+- 新增 skill 时，在 `skills/` 下创建目录，并补齐必备文件：
+  `SKILL.md`、`VERSION`、`CHANGELOG.md`、`README.md`、`README.zh-CN.md`
+  和 `install.mjs`。
 - 根目录安装器通过扫描 `skills/` 的一级子目录来发现包含 `SKILL.md` 的可安装 skill。
 - 安装行为统一维护在 `install.mjs`；各 skill 本地安装脚本应保持为轻量 wrapper。
+- `README.md` 作为英文说明，`README.zh-CN.md` 作为中文说明。

@@ -54,6 +54,65 @@ function pick(obj, keys) {
   return undefined;
 }
 
+function normalizeKey(key) {
+  return String(key || "").replace(/[^a-zA-Z0-9]/g, "").toLowerCase();
+}
+
+function findFirstDeep(root, keys, maxDepth = 6) {
+  const wanted = new Set(keys.map(normalizeKey));
+  const seen = new Set();
+
+  function visit(value, depth) {
+    if (value === undefined || value === null || depth > maxDepth) return undefined;
+    if (typeof value !== "object") return undefined;
+    if (seen.has(value)) return undefined;
+    seen.add(value);
+
+    if (isPlainObject(value)) {
+      for (const [key, item] of Object.entries(value)) {
+        if (wanted.has(normalizeKey(key)) && item !== undefined && item !== null && item !== "") return item;
+      }
+      for (const item of Object.values(value)) {
+        const found = visit(item, depth + 1);
+        if (found !== undefined) return found;
+      }
+    } else if (Array.isArray(value)) {
+      for (const item of value) {
+        const found = visit(item, depth + 1);
+        if (found !== undefined) return found;
+      }
+    }
+    return undefined;
+  }
+
+  return visit(root, 0);
+}
+
+function findAllDeep(root, keys, maxDepth = 6) {
+  const wanted = new Set(keys.map(normalizeKey));
+  const seen = new Set();
+  const results = [];
+
+  function visit(value, depth) {
+    if (value === undefined || value === null || depth > maxDepth) return;
+    if (typeof value !== "object") return;
+    if (seen.has(value)) return;
+    seen.add(value);
+
+    if (isPlainObject(value)) {
+      for (const [key, item] of Object.entries(value)) {
+        if (wanted.has(normalizeKey(key)) && item !== undefined && item !== null && item !== "") results.push(item);
+      }
+      for (const item of Object.values(value)) visit(item, depth + 1);
+    } else if (Array.isArray(value)) {
+      for (const item of value) visit(item, depth + 1);
+    }
+  }
+
+  visit(root, 0);
+  return results;
+}
+
 function lower(value) {
   return String(value || "").trim().toLowerCase();
 }
@@ -138,6 +197,13 @@ function formatDate(value) {
   return ts ? new Date(ts).toLocaleString("zh-CN", { hour12: false }) : undefined;
 }
 
+function stringifyValue(value) {
+  if (value === undefined || value === null || value === "") return undefined;
+  if (typeof value === "string") return value;
+  if (typeof value === "number" || typeof value === "boolean") return String(value);
+  return JSON.stringify(value);
+}
+
 function arrayFromMaybeMap(value) {
   if (Array.isArray(value)) return value;
   if (isPlainObject(value)) {
@@ -205,7 +271,7 @@ function getTaskCollections(raw) {
 function normalizeTask(raw, index) {
   if (!isPlainObject(raw)) {
     return {
-      name: `任务 ${index + 1}`,
+      name: stringifyValue(raw) || `任务 ${index + 1}`,
       status: normalizeStatus(raw),
       nested: [],
     };
@@ -226,8 +292,18 @@ function normalizeTask(raw, index) {
     attempts: numberValue(pick(raw, ["attempts", "attempt", "retryCount", "retries", "runCount"])),
     failures: numberValue(pick(raw, ["failures", "failureCount", "failedCount", "errorCount"])),
     recoveryCount: numberValue(pick(raw, ["recoveryCount", "recoveries", "recoveryAttempts", "recoveredCount"])),
+    group: stringifyValue(pick(raw, ["group", "groupId", "group_id"])),
+    branch: stringifyValue(pick(raw, ["branch", "gitBranch", "featureBranch"])),
+    worktree: stringifyValue(pick(raw, ["worktree", "worktreePath", "worktree_path"])),
+    agent: stringifyValue(pick(raw, ["agent", "agentId", "agentName", "worker"])),
     nested,
   };
+}
+
+function normalizeStatusTask(raw, status, index) {
+  const task = normalizeTask(raw, index);
+  task.status = status;
+  return task;
 }
 
 function sumNumbers(values) {
@@ -277,6 +353,8 @@ function normalizeStage(raw, index) {
     recoveryCount: countRecovery(raw, tasks),
     tasks,
     output: pick(raw, ["output", "outputPath", "artifact", "artifactPath", "resultPath"]),
+    pid: numberValue(pick(raw, ["pid", "processId", "process_id", "currentPid"])),
+    log: stringifyValue(pick(raw, ["log", "logPath", "stageLog", "stageLogPath"])),
   };
 }
 
@@ -291,16 +369,146 @@ function flattenTasks(tasks) {
 
 function extractProjectInfo(data) {
   const sources = [data.project, data.projectInfo, data.metadata, data.meta, data.summary, data.req, data.request, data];
+  const gitSources = [data.git, data.remote, data.repository, data.repo, data.project?.git, data.projectInfo?.git, data.metadata?.git, data.meta?.git, data];
   const name = firstDefined(...sources.map((source) => pick(source, ["projectName", "name", "title", "appName"])));
   const description = firstDefined(...sources.map((source) => pick(source, ["description", "brief", "summary", "intro", "prompt", "goal"])));
   const createdAt = firstDefined(...sources.map((source) => pick(source, ["createdAt", "startedAt", "startTime"])));
   const updatedAt = firstDefined(...sources.map((source) => pick(source, ["updatedAt", "lastUpdatedAt", "modifiedAt", "endedAt"])));
   return {
+    id: stringifyValue(firstDefined(...sources.map((source) => pick(source, ["projectId", "project_id", "id"])), findFirstDeep(data, ["projectId", "project_id"]))),
     name: name ? String(name) : undefined,
     description: description ? String(description) : undefined,
+    rootDir: stringifyValue(firstDefined(...sources.map((source) => pick(source, ["rootDir", "root_dir", "projectRoot", "project_root", "root", "cwd", "workspace"])), findFirstDeep(data, ["rootDir", "projectRoot", "project_root"]))),
+    gitRemote: stringifyValue(firstDefined(...gitSources.map((source) => pick(source, ["remote", "remoteName", "remote_name", "gitRemote"])))),
+    remoteUrl: stringifyValue(firstDefined(...gitSources.map((source) => pick(source, ["remoteUrl", "remote_url", "url", "gitUrl"])))),
+    defaultBranch: stringifyValue(firstDefined(...gitSources.map((source) => pick(source, ["defaultBranch", "default_branch", "branch", "mainBranch"])))),
+    remoteConfiguredAt: formatDate(firstDefined(...gitSources.map((source) => pick(source, ["remoteConfiguredAt", "remote_configured_at", "configuredAt", "configured_at"])))),
     createdAt: formatDate(createdAt),
     updatedAt: formatDate(updatedAt),
   };
+}
+
+function extractPipelineInfo(data, stages, filePath) {
+  const sources = [data.pipeline, data.execution, data.run, data.runtime, data.status, data.metadata, data.meta, data];
+  const runningStage = stages.find((stage) => stage.status === "running");
+  const completedStages = stages.filter((stage) => stage.status === "completed");
+  const currentStage = stringifyValue(firstDefined(
+    ...sources.map((source) => pick(source, ["currentStage", "current_stage", "runningStage", "activeStage", "stage"])),
+    runningStage?.name
+  ));
+  const currentStatus = stringifyValue(firstDefined(
+    ...sources.map((source) => pick(source, ["currentStatus", "current_status", "status", "state"])),
+    runningStage ? "running" : undefined
+  ));
+  const recentCompletedStage = stringifyValue(firstDefined(
+    ...sources.map((source) => pick(source, ["recentCompletedStage", "recent_completed_stage", "lastCompletedStage", "last_completed_stage"])),
+    completedStages.length ? completedStages[completedStages.length - 1].name : undefined
+  ));
+  const pid = numberValue(firstDefined(
+    ...sources.map((source) => pick(source, ["pid", "processId", "process_id", "currentPid", "current_pid"])),
+    runningStage?.pid,
+    findFirstDeep(data, ["currentPid", "processId", "pid"], 4)
+  ));
+  const currentStageStartedAt = formatDate(firstDefined(
+    ...sources.map((source) => pick(source, ["currentStageStartedAt", "current_stage_started_at", "stageStartedAt", "stage_started_at", `${currentStage}StartedAt`])),
+    runningStage?.startedAt
+  ));
+  const stagesUpdatedAt = formatDate(firstDefined(
+    ...sources.map((source) => pick(source, ["stagesUpdatedAt", "stages_updated_at", "updatedAt", "updated_at", "lastUpdatedAt"])),
+    fs.statSync(filePath).mtime
+  ));
+  const logSources = [data.logs, data.log, data.pipeline?.logs, data.pipeline?.log, data.metadata?.logs, data.meta?.logs, data];
+  return {
+    currentStage,
+    currentStatus,
+    recentCompletedStage,
+    pid,
+    currentStageStartedAt,
+    stagesUpdatedAt,
+    globalLog: stringifyValue(firstDefined(...logSources.map((source) => pick(source, ["global", "globalLog", "globalLogPath", "pipelineLog", "pipelineLogPath", "logPath"])))),
+    stageLog: stringifyValue(firstDefined(...logSources.map((source) => pick(source, ["stage", "stageLog", "stageLogPath", "currentStageLog", "currentStageLogPath"])), runningStage?.log)),
+  };
+}
+
+function taskFeatureId(task) {
+  return task.name;
+}
+
+function extractCodegenProgress(data, stages) {
+  const codegenStage = stages.find((stage) => normalizeKey(stage.name).includes("codegen"));
+  const sources = [data.codegen, data.codegenProgress, data.pipeline?.codegen, data.pipeline?.codegenProgress, data.progress?.codegen, data.stages?.codegen, data.stages?.codegen_progress];
+  const sourceTasks = firstDefined(...sources.map((source) => pick(source, ["tasks", "items", "features", "queue", "featureItems"])));
+  let tasks = arrayFromMaybeMap(sourceTasks).length ? arrayFromMaybeMap(sourceTasks).map(normalizeTask) : [];
+  if (!tasks.length) {
+    const completedItems = arrayFromMaybeMap(firstDefined(...sources.map((source) => pick(source, ["completedItems", "completedTasks", "completedFeatures", "completedList", "doneItems", "done"]))));
+    const runningItems = arrayFromMaybeMap(firstDefined(...sources.map((source) => pick(source, ["runningItems", "runningTasks", "runningFeatures", "activeItems", "active"]))));
+    const pendingItems = arrayFromMaybeMap(firstDefined(...sources.map((source) => pick(source, ["pendingItems", "pendingTasks", "pendingFeatures", "queuedItems", "todoItems", "todo", "queued"]))));
+    tasks = [
+      ...completedItems.map((item, index) => normalizeStatusTask(item, "completed", index)),
+      ...runningItems.map((item, index) => normalizeStatusTask(item, "running", index)),
+      ...pendingItems.map((item, index) => normalizeStatusTask(item, "pending", index)),
+    ];
+  }
+  if (!tasks.length) tasks = codegenStage?.tasks || [];
+  const flat = flattenTasks(tasks);
+  const completed = flat.filter((task) => task.status === "completed");
+  const running = flat.filter((task) => task.status === "running");
+  const pending = flat.filter((task) => task.status === "pending");
+  const explicitCounts = {
+    completed: numberValue(firstDefined(...sources.map((source) => pick(source, ["completed", "completedCount", "doneCount"])))),
+    running: numberValue(firstDefined(...sources.map((source) => pick(source, ["running", "runningCount", "activeCount"])))),
+    pending: numberValue(firstDefined(...sources.map((source) => pick(source, ["pending", "pendingCount", "todoCount", "queuedCount"])))),
+  };
+  if (!flat.length && explicitCounts.completed === undefined && explicitCounts.running === undefined && explicitCounts.pending === undefined) {
+    return undefined;
+  }
+  return {
+    completedCount: explicitCounts.completed ?? completed.length,
+    runningCount: explicitCounts.running ?? running.length,
+    pendingCount: explicitCounts.pending ?? pending.length,
+    running,
+    completed,
+    pending,
+  };
+}
+
+function normalizeRecoveryRecord(raw, index) {
+  if (!isPlainObject(raw)) return { title: stringifyValue(raw) || `恢复记录 ${index + 1}` };
+  const stage = stringifyValue(pick(raw, ["stage", "stageName", "stage_name", "name"]));
+  const count = numberValue(pick(raw, ["count", "times", "recoveryCount", "recoveries", "attempts"]));
+  const message = stringifyValue(pick(raw, ["message", "summary", "description", "reason", "fix", "result", "note"]));
+  return {
+    stage,
+    count,
+    message,
+    title: stringifyValue(pick(raw, ["title", "name"])) || undefined,
+  };
+}
+
+function extractRecoveryRecords(data) {
+  const candidates = [
+    data.recoveryRecords,
+    data.recoveries,
+    data.recovery,
+    data.pipeline?.recoveryRecords,
+    data.pipeline?.recoveries,
+    data.metadata?.recoveryRecords,
+    data.meta?.recoveryRecords,
+    ...findAllDeep(data, ["recoveryRecords", "recoveries"], 4),
+  ];
+  const records = [];
+  for (const candidate of candidates) {
+    for (const record of arrayFromMaybeMap(candidate)) records.push(normalizeRecoveryRecord(record, records.length));
+  }
+  const unique = [];
+  const seen = new Set();
+  for (const record of records.filter((item) => item.title || item.stage || item.message || item.count !== undefined)) {
+    const key = JSON.stringify([record.stage || "", record.count ?? "", record.message || "", record.title || ""]);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    unique.push(record);
+  }
+  return unique;
 }
 
 function summarize(data, filePath) {
@@ -316,6 +524,9 @@ function summarize(data, filePath) {
   return {
     filePath,
     project: extractProjectInfo(data),
+    pipeline: extractPipelineInfo(data, stages, filePath),
+    codegen: extractCodegenProgress(data, stages),
+    recoveryRecords: extractRecoveryRecords(data),
     counts: {
       totalStages: stages.length,
       completedStages: completedStages.length,
@@ -363,15 +574,62 @@ function renderReport(summary) {
   lines.push("# 当前项目运行状态");
   lines.push("");
   lines.push(`- 数据文件: ${summary.filePath}`);
+  lines.push("");
+  lines.push("## 项目");
+  if (summary.project.id) lines.push(`- 项目 ID: ${summary.project.id}`);
   lines.push(`- 项目名称: ${projectName}`);
   lines.push(`- 项目简介: ${projectBrief}`);
+  if (summary.project.rootDir) lines.push(`- 根目录: ${summary.project.rootDir}`);
+  if (summary.project.gitRemote) lines.push(`- Git remote: ${summary.project.gitRemote}`);
+  if (summary.project.remoteUrl) lines.push(`- Remote URL: ${summary.project.remoteUrl}`);
+  if (summary.project.defaultBranch) lines.push(`- 默认分支: ${summary.project.defaultBranch}`);
+  if (summary.project.remoteConfiguredAt) lines.push(`- Remote 配置时间: ${summary.project.remoteConfiguredAt}`);
   if (summary.project.createdAt) lines.push(`- 开始时间: ${summary.project.createdAt}`);
   if (summary.project.updatedAt) lines.push(`- 最近更新时间: ${summary.project.updatedAt}`);
+  lines.push("");
+  lines.push("## 流水线");
+  if (summary.pipeline.currentStage) lines.push(`- 当前阶段: ${summary.pipeline.currentStage}`);
+  if (summary.pipeline.currentStatus) lines.push(`- 当前状态: ${summary.pipeline.currentStatus}`);
+  if (summary.pipeline.recentCompletedStage) lines.push(`- 最近完成阶段: ${summary.pipeline.recentCompletedStage}`);
+  if (summary.pipeline.pid !== undefined) lines.push(`- 当前进程 PID: ${summary.pipeline.pid}`);
+  if (summary.pipeline.currentStageStartedAt) lines.push(`- 当前阶段启动时间: ${summary.pipeline.currentStageStartedAt}`);
+  if (summary.pipeline.stagesUpdatedAt) lines.push(`- stages.json 更新时间: ${summary.pipeline.stagesUpdatedAt}`);
+  if (summary.pipeline.globalLog || summary.pipeline.stageLog) {
+    lines.push("- 日志:");
+    if (summary.pipeline.globalLog) lines.push(`  - 全局: ${summary.pipeline.globalLog}`);
+    if (summary.pipeline.stageLog) lines.push(`  - 阶段: ${summary.pipeline.stageLog}`);
+  }
   lines.push(`- Stage 统计: 总计 ${summary.counts.totalStages}，已完成 ${summary.counts.completedStages}，运行中 ${summary.counts.runningStages}，失败 ${summary.counts.failedStages}，未开始/等待 ${summary.counts.pendingStages}`);
   lines.push(`- 子项/任务统计: 总计 ${summary.counts.totalTasks}，已完成 ${summary.counts.completedTasks}，运行中 ${summary.counts.runningTasks}，失败 ${summary.counts.failedTasks}，未完成 ${summary.counts.pendingTasks}`);
   lines.push(`- 已完成 stage 总计运行时间: ${formatDuration(summary.runtime.completedTotalMs)}`);
   lines.push(`- 失败次数: ${summary.failures}`);
   lines.push(`- Recovery 次数: ${summary.recoveries}`);
+  lines.push("");
+  lines.push("## 阶段状态");
+  lines.push(listLine(summary.stages, (stage) => `- ${stage.name}: ${stage.status}`));
+  if (summary.codegen) {
+    lines.push("");
+    lines.push("## Codegen 进度");
+    lines.push(`- 已完成: ${summary.codegen.completedCount}`);
+    lines.push(`- 运行中: ${summary.codegen.runningCount}`);
+    lines.push(`- 待处理: ${summary.codegen.pendingCount}`);
+    lines.push("");
+    lines.push("### 运行中");
+    lines.push(listLine(summary.codegen.running, (task) => {
+      const parts = [`- ${taskFeatureId(task)}`];
+      if (task.group) parts.push(`  - 分组: ${task.group}`);
+      if (task.branch) parts.push(`  - 分支: ${task.branch}`);
+      if (task.worktree) parts.push(`  - worktree: ${task.worktree}`);
+      if (task.agent) parts.push(`  - agent: ${task.agent}`);
+      return parts.join("\n");
+    }));
+    lines.push("");
+    lines.push("### 已完成");
+    lines.push(listLine(summary.codegen.completed, (task) => `- ${taskFeatureId(task)}`));
+    lines.push("");
+    lines.push("### 待处理");
+    lines.push(listLine(summary.codegen.pending, (task) => `- ${taskFeatureId(task)}`));
+  }
   lines.push("");
   lines.push("## 已完成 Stage");
   lines.push(listLine(summary.completedStages, (stage) => `- ${stage.name}: ${formatDuration(stage.durationMs)}${stage.attempts ? `，尝试 ${stage.attempts} 次` : ""}`));
@@ -416,6 +674,14 @@ function renderReport(summary) {
     lines.push("");
     lines.push("## 未识别状态 Stage");
     lines.push(listLine(summary.unknownStages, (stage) => `- ${stage.name}: ${stage.status}`));
+  }
+  if (summary.recoveryRecords.length) {
+    lines.push("");
+    lines.push("## 恢复记录");
+    lines.push(listLine(summary.recoveryRecords, (record) => {
+      const prefix = record.stage ? `${record.stage}${record.count !== undefined ? ` 修复 ${record.count} 次` : ""}` : (record.title || "恢复记录");
+      return `- ${prefix}${record.message ? `: ${record.message}` : ""}`;
+    }));
   }
   return lines.join("\n");
 }

@@ -1,8 +1,8 @@
-# project-status-checker
+# piflow-status-inspector
 
 Chinese documentation: [README.zh-CN.md](./README.zh-CN.md).
 
-`project-status-checker` reports the current PiFlow project runtime status. It reads `output-stages/stages.json` from the target project directory and uses a bundled script to summarize the project brief, stage progress, runtime, failures, recovery counts, and the running stage's nested task status.
+`piflow-status-inspector` reports the current PiFlow project runtime status. It reads `output-stages/stages.json` from the target project directory and uses a bundled script to summarize the project brief, stage progress, runtime, failures, recovery counts, and the running stage's nested task status.
 
 Agent instructions are in [SKILL.md](./SKILL.md).
 
@@ -11,7 +11,7 @@ Agent instructions are in [SKILL.md](./SKILL.md).
 Run the shared installer from the repository root:
 
 ```bash
-node install.mjs project-status-checker
+node install.mjs piflow-status-inspector
 ```
 
 Or run the compatibility wrapper from this skill directory:
@@ -37,7 +37,7 @@ Ask the agent:
 ```
 
 ```text
-Use $project-status-checker to check where the current project is.
+Use $piflow-status-inspector to check where the current project is.
 ```
 
 ## Script

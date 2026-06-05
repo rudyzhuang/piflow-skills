@@ -1,8 +1,8 @@
-# project-status-checker
+# piflow-status-inspector
 
 English documentation: [README.md](./README.md).
 
-`project-status-checker` 用于查询当前 PiFlow 项目的运行状态。它默认读取当前目录下的 `output-stages/stages.json`，通过脚本解析项目简介、stage 进度、运行时间、失败次数、recovery 次数，以及当前执行 stage 的子任务完成情况。
+`piflow-status-inspector` 用于查询当前 PiFlow 项目的运行状态。它默认读取当前目录下的 `output-stages/stages.json`，通过脚本解析项目简介、stage 进度、运行时间、失败次数、recovery 次数，以及当前执行 stage 的子任务完成情况。
 
 Agent 操作指南见 [SKILL.md](./SKILL.md)。
 
@@ -11,7 +11,7 @@ Agent 操作指南见 [SKILL.md](./SKILL.md)。
 推荐在仓库根目录运行统一安装脚本：
 
 ```bash
-node install.mjs project-status-checker
+node install.mjs piflow-status-inspector
 ```
 
 也可以在本 skill 目录运行兼容 wrapper：
@@ -37,7 +37,7 @@ node install.mjs
 ```
 
 ```text
-使用 project-status-checker，看当前项目跑到哪了。
+使用 piflow-status-inspector，看当前项目跑到哪了。
 ```
 
 ## 脚本
@@ -63,7 +63,7 @@ node scripts/project_status.cjs --cwd /path/to/project --json
 ## 项目结构
 
 ```text
-project-status-checker/
+piflow-status-inspector/
 ├── SKILL.md
 ├── README.md
 ├── README.zh-CN.md
