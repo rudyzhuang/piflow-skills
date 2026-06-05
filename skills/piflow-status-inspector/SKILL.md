@@ -42,7 +42,8 @@ Use agent reasoning only to choose the target directory, run the script, and bri
    - 当前正在执行的 stage、已经运行时间
    - 当前 stage 的已完成子项/任务、未完成子项/任务
    - codegen 进度：已完成、运行中、待处理数量，以及运行中任务的分组、分支、worktree、agent
-   - 恢复记录：按 stage 汇总修复/recovery 次数和摘要
+   - Recovery 状态：是否正在 recovery、历史 recovery 次数、最近 recovery、当前/最近修复目标、决策、续跑 stage/features
+   - 恢复记录：按 stage 展示 attempt、repair target、category、decision、失败摘要、续跑范围和修复摘要
    - 失败次数
    - recovery 次数
    - Any additional useful data extracted by the script, such as total stage counts, pending stages, last update time, output paths, or raw status distribution.
@@ -60,6 +61,6 @@ The script is intentionally tolerant of evolving `stages.json` schemas. It shoul
 - `stages` as an array or object map
 - common stage fields such as `id`, `name`, `title`, `stage`, `status`, `state`, `startedAt`, `endedAt`, `durationMs`, `elapsedMs`, `attempts`, `failures`, `recoveryCount`
 - nested task collections such as `tasks`, `items`, `steps`, `checks`, `subtasks`, `children`, or `todos`
-- PiFlow metadata fields for project identity, git remote configuration, pipeline process state, logs, codegen feature queues, worktrees, agents, and recovery records
+- PiFlow metadata fields for project identity, git remote configuration, `pipeline.current`, pipeline process state, logs, codegen feature queues, worktrees, agents, `pipeline.recovery_history`, `runtime_snapshot.recovery_index`, and current recovery records when present
 
 If the schema changes, patch the script rather than replacing it with ad hoc agent parsing.

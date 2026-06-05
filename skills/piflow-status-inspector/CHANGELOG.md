@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.3 - 2026-06-05
+
+- 增强 PiFlow 状态检查的 recovery 运行分析
+- Changed: 2 file(s).
+- Areas: skills(2).
+- Hints: scripts/tests, documentation.
+
 ## 0.1.2 - 2026-06-05
 
 - 重命名并增强 PiFlow 状态检查 skill

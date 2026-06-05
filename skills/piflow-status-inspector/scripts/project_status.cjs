@@ -368,8 +368,8 @@ function flattenTasks(tasks) {
 }
 
 function extractProjectInfo(data) {
-  const sources = [data.project, data.projectInfo, data.metadata, data.meta, data.summary, data.req, data.request, data];
-  const gitSources = [data.git, data.remote, data.repository, data.repo, data.project?.git, data.projectInfo?.git, data.metadata?.git, data.meta?.git, data];
+  const sources = [data.project, data.projectInfo, data.pipeline?.project, data.metadata, data.meta, data.summary, data.req, data.request, data];
+  const gitSources = [data.git, data.remote, data.repository, data.repo, data.project?.git, data.projectInfo?.git, data.pipeline?.project?.git, data.metadata?.git, data.meta?.git, data];
   const name = firstDefined(...sources.map((source) => pick(source, ["projectName", "name", "title", "appName"])));
   const description = firstDefined(...sources.map((source) => pick(source, ["description", "brief", "summary", "intro", "prompt", "goal"])));
   const createdAt = firstDefined(...sources.map((source) => pick(source, ["createdAt", "startedAt", "startTime"])));
@@ -378,7 +378,7 @@ function extractProjectInfo(data) {
     id: stringifyValue(firstDefined(...sources.map((source) => pick(source, ["projectId", "project_id", "id"])), findFirstDeep(data, ["projectId", "project_id"]))),
     name: name ? String(name) : undefined,
     description: description ? String(description) : undefined,
-    rootDir: stringifyValue(firstDefined(...sources.map((source) => pick(source, ["rootDir", "root_dir", "projectRoot", "project_root", "root", "cwd", "workspace"])), findFirstDeep(data, ["rootDir", "projectRoot", "project_root"]))),
+    rootDir: stringifyValue(firstDefined(...sources.map((source) => pick(source, ["rootDir", "root_dir", "rootPath", "root_path", "projectRoot", "project_root", "root", "cwd", "workspace"])), findFirstDeep(data, ["rootDir", "rootPath", "root_path", "projectRoot", "project_root"]))),
     gitRemote: stringifyValue(firstDefined(...gitSources.map((source) => pick(source, ["remote", "remoteName", "remote_name", "gitRemote"])))),
     remoteUrl: stringifyValue(firstDefined(...gitSources.map((source) => pick(source, ["remoteUrl", "remote_url", "url", "gitUrl"])))),
     defaultBranch: stringifyValue(firstDefined(...gitSources.map((source) => pick(source, ["defaultBranch", "default_branch", "branch", "mainBranch"])))),
@@ -390,13 +390,16 @@ function extractProjectInfo(data) {
 
 function extractPipelineInfo(data, stages, filePath) {
   const sources = [data.pipeline, data.execution, data.run, data.runtime, data.status, data.metadata, data.meta, data];
+  const currentSources = [data.pipeline?.current, data.current, data.execution?.current, data.run?.current];
   const runningStage = stages.find((stage) => stage.status === "running");
   const completedStages = stages.filter((stage) => stage.status === "completed");
   const currentStage = stringifyValue(firstDefined(
+    ...currentSources.map((source) => pick(source, ["stage", "currentStage", "current_stage", "runningStage", "activeStage"])),
     ...sources.map((source) => pick(source, ["currentStage", "current_stage", "runningStage", "activeStage", "stage"])),
     runningStage?.name
   ));
   const currentStatus = stringifyValue(firstDefined(
+    ...currentSources.map((source) => pick(source, ["state", "status", "currentStatus", "current_status"])),
     ...sources.map((source) => pick(source, ["currentStatus", "current_status", "status", "state"])),
     runningStage ? "running" : undefined
   ));
@@ -405,24 +408,30 @@ function extractPipelineInfo(data, stages, filePath) {
     completedStages.length ? completedStages[completedStages.length - 1].name : undefined
   ));
   const pid = numberValue(firstDefined(
+    ...currentSources.map((source) => pick(source, ["pid", "processId", "process_id", "currentPid", "current_pid"])),
     ...sources.map((source) => pick(source, ["pid", "processId", "process_id", "currentPid", "current_pid"])),
     runningStage?.pid,
     findFirstDeep(data, ["currentPid", "processId", "pid"], 4)
   ));
   const currentStageStartedAt = formatDate(firstDefined(
+    ...currentSources.map((source) => pick(source, ["startedAt", "started_at", "startTime", "start_time", "stageStartedAt", "stage_started_at"])),
     ...sources.map((source) => pick(source, ["currentStageStartedAt", "current_stage_started_at", "stageStartedAt", "stage_started_at", `${currentStage}StartedAt`])),
     runningStage?.startedAt
   ));
   const stagesUpdatedAt = formatDate(firstDefined(
+    ...currentSources.map((source) => pick(source, ["heartbeatAt", "heartbeat_at", "updatedAt", "updated_at"])),
     ...sources.map((source) => pick(source, ["stagesUpdatedAt", "stages_updated_at", "updatedAt", "updated_at", "lastUpdatedAt"])),
     fs.statSync(filePath).mtime
   ));
-  const logSources = [data.logs, data.log, data.pipeline?.logs, data.pipeline?.log, data.metadata?.logs, data.meta?.logs, data];
+  const logSources = [data.logs, data.log, data.pipeline?.logs, data.pipeline?.log, data.pipeline?.current?.log_paths, data.pipeline?.current?.logs, data.metadata?.logs, data.meta?.logs, data];
   return {
     currentStage,
     currentStatus,
     recentCompletedStage,
     pid,
+    detail: stringifyValue(firstDefined(...currentSources.map((source) => pick(source, ["detail", "message", "reason", "error"])))),
+    heartbeatAt: formatDate(firstDefined(...currentSources.map((source) => pick(source, ["heartbeatAt", "heartbeat_at"])))),
+    elapsedMs: numberValue(firstDefined(...currentSources.map((source) => pick(source, ["elapsedMs", "elapsed_ms", "durationMs", "duration_ms"])))),
     currentStageStartedAt,
     stagesUpdatedAt,
     globalLog: stringifyValue(firstDefined(...logSources.map((source) => pick(source, ["global", "globalLog", "globalLogPath", "pipelineLog", "pipelineLogPath", "logPath"])))),
@@ -477,10 +486,25 @@ function normalizeRecoveryRecord(raw, index) {
   const stage = stringifyValue(pick(raw, ["stage", "stageName", "stage_name", "name"]));
   const count = numberValue(pick(raw, ["count", "times", "recoveryCount", "recoveries", "attempts"]));
   const message = stringifyValue(pick(raw, ["message", "summary", "description", "reason", "fix", "result", "note"]));
+  const rerunScope = raw.rerun_scope || raw.project_continuation_plan;
+  const rootCause = raw.root_cause;
   return {
     stage,
     count,
     message,
+    attempt: numberValue(pick(raw, ["attempt", "attempts"])),
+    decision: stringifyValue(pick(raw, ["decision", "action"])),
+    repairTarget: stringifyValue(pick(raw, ["repairTarget", "repair_target"])),
+    category: stringifyValue(pick(raw, ["category", "failureLayer", "failure_layer"])),
+    failureSignatureId: stringifyValue(pick(raw, ["failureSignatureId", "failure_signature_id", "signature"])),
+    runId: stringifyValue(pick(raw, ["runId", "run_id"])),
+    exitCode: numberValue(pick(raw, ["exitCode", "exit_code"])),
+    rerunStage: stringifyValue(pick(rerunScope, ["stage", "action"])),
+    rerunFeatures: Array.isArray(rerunScope?.features) ? rerunScope.features.map(String) : undefined,
+    rootCauseSummary: stringifyValue(pick(rootCause, ["failure_symptom", "failureSymptom", "direct_cause", "directCause", "summary"])),
+    filesChangedCount: Array.isArray(raw.files_changed) ? raw.files_changed.length : undefined,
+    pushed: typeof raw.pushed === "boolean" ? raw.pushed : undefined,
+    at: formatDate(pick(raw, ["at", "createdAt", "created_at", "time"])),
     title: stringifyValue(pick(raw, ["title", "name"])) || undefined,
   };
 }
@@ -490,8 +514,10 @@ function extractRecoveryRecords(data) {
     data.recoveryRecords,
     data.recoveries,
     data.recovery,
+    data.pipeline?.recovery_history,
     data.pipeline?.recoveryRecords,
     data.pipeline?.recoveries,
+    data.pipeline?.runtime_snapshot?.recovery_index,
     data.metadata?.recoveryRecords,
     data.meta?.recoveryRecords,
     ...findAllDeep(data, ["recoveryRecords", "recoveries"], 4),
@@ -511,6 +537,27 @@ function extractRecoveryRecords(data) {
   return unique;
 }
 
+function extractRecoveryInfo(data) {
+  const records = extractRecoveryRecords(data);
+  const current = firstDefined(
+    data.pipeline?.current_recovery,
+    data.pipeline?.recovery_current,
+    data.current_recovery,
+    data.recovery?.current
+  );
+  const currentRecord = current ? normalizeRecoveryRecord(current, 0) : undefined;
+  const stateSource = data.pipeline?.current || data.current || {};
+  const currentState = lower(pick(stateSource, ["state", "status", "stage", "detail"]));
+  const looksRecovering = currentState.includes("recover");
+  return {
+    historyCount: records.length,
+    current: currentRecord,
+    isRecovering: Boolean(currentRecord || looksRecovering),
+    latest: records.length ? records[records.length - 1] : undefined,
+    records,
+  };
+}
+
 function summarize(data, filePath) {
   const stages = findStageCollection(data).map(normalizeStage);
   const completedStages = stages.filter((stage) => stage.status === "completed");
@@ -526,6 +573,7 @@ function summarize(data, filePath) {
     project: extractProjectInfo(data),
     pipeline: extractPipelineInfo(data, stages, filePath),
     codegen: extractCodegenProgress(data, stages),
+    recovery: extractRecoveryInfo(data),
     recoveryRecords: extractRecoveryRecords(data),
     counts: {
       totalStages: stages.length,
@@ -590,9 +638,12 @@ function renderReport(summary) {
   lines.push("## 流水线");
   if (summary.pipeline.currentStage) lines.push(`- 当前阶段: ${summary.pipeline.currentStage}`);
   if (summary.pipeline.currentStatus) lines.push(`- 当前状态: ${summary.pipeline.currentStatus}`);
+  if (summary.pipeline.detail) lines.push(`- 当前详情: ${summary.pipeline.detail}`);
   if (summary.pipeline.recentCompletedStage) lines.push(`- 最近完成阶段: ${summary.pipeline.recentCompletedStage}`);
   if (summary.pipeline.pid !== undefined) lines.push(`- 当前进程 PID: ${summary.pipeline.pid}`);
   if (summary.pipeline.currentStageStartedAt) lines.push(`- 当前阶段启动时间: ${summary.pipeline.currentStageStartedAt}`);
+  if (summary.pipeline.heartbeatAt) lines.push(`- 最近心跳: ${summary.pipeline.heartbeatAt}`);
+  if (summary.pipeline.elapsedMs !== undefined) lines.push(`- 当前阶段已运行: ${formatDuration(summary.pipeline.elapsedMs)}`);
   if (summary.pipeline.stagesUpdatedAt) lines.push(`- stages.json 更新时间: ${summary.pipeline.stagesUpdatedAt}`);
   if (summary.pipeline.globalLog || summary.pipeline.stageLog) {
     lines.push("- 日志:");
@@ -629,6 +680,27 @@ function renderReport(summary) {
     lines.push("");
     lines.push("### 待处理");
     lines.push(listLine(summary.codegen.pending, (task) => `- ${taskFeatureId(task)}`));
+  }
+  if (summary.recovery.historyCount || summary.recovery.isRecovering) {
+    lines.push("");
+    lines.push("## Recovery 状态");
+    lines.push(`- 是否正在 recovery: ${summary.recovery.isRecovering ? "是" : "否"}`);
+    lines.push(`- 历史 recovery 次数: ${summary.recovery.historyCount}`);
+    const currentRecovery = summary.recovery.current;
+    if (currentRecovery) {
+      lines.push(`- 当前 recovery stage: ${currentRecovery.stage || "未识别"}`);
+      if (currentRecovery.attempt !== undefined) lines.push(`- 当前尝试次数: ${currentRecovery.attempt}`);
+      if (currentRecovery.decision) lines.push(`- 决策: ${currentRecovery.decision}`);
+      if (currentRecovery.repairTarget) lines.push(`- 修复目标: ${currentRecovery.repairTarget}`);
+      if (currentRecovery.message) lines.push(`- 摘要: ${currentRecovery.message}`);
+    }
+    const latestRecovery = summary.recovery.latest;
+    if (latestRecovery) {
+      lines.push(`- 最近 recovery: ${latestRecovery.stage || "未识别"}${latestRecovery.attempt !== undefined ? ` attempt ${latestRecovery.attempt}` : ""}${latestRecovery.repairTarget ? `，目标 ${latestRecovery.repairTarget}` : ""}`);
+      if (latestRecovery.rerunStage || latestRecovery.rerunFeatures?.length) {
+        lines.push(`- 建议续跑: ${[latestRecovery.rerunStage, latestRecovery.rerunFeatures?.join(",")].filter(Boolean).join(" ")}`);
+      }
+    }
   }
   lines.push("");
   lines.push("## 已完成 Stage");
@@ -679,8 +751,15 @@ function renderReport(summary) {
     lines.push("");
     lines.push("## 恢复记录");
     lines.push(listLine(summary.recoveryRecords, (record) => {
-      const prefix = record.stage ? `${record.stage}${record.count !== undefined ? ` 修复 ${record.count} 次` : ""}` : (record.title || "恢复记录");
-      return `- ${prefix}${record.message ? `: ${record.message}` : ""}`;
+      const countText = record.count !== undefined ? ` 修复 ${record.count} 次` : (record.attempt !== undefined ? ` attempt ${record.attempt}` : "");
+      const prefix = record.stage ? `${record.stage}${countText}` : (record.title || "恢复记录");
+      const meta = [record.repairTarget, record.category, record.decision].filter(Boolean).join("/");
+      const suffix = [
+        meta ? `(${meta})` : "",
+        record.message ? `: ${record.message}` : "",
+        record.rerunFeatures?.length ? `；续跑 ${record.rerunStage || record.stage}: ${record.rerunFeatures.join(",")}` : "",
+      ].join("");
+      return `- ${prefix}${suffix}`;
     }));
   }
   return lines.join("\n");
