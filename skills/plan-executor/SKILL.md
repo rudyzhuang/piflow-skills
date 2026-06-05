@@ -28,9 +28,9 @@ Repeat this loop until every active modification point or ad hoc checklist item 
    - Pending work includes `执行状态: 未执行` or `执行状态: 部分执行`.
    - Points marked `已废弃` or `已替代` are not implementation targets, but their history must be preserved.
    - When using a user-provided ad hoc plan without `last_plan.md`, split the plan into concrete checklist items with scope, expected outcome, and verification evidence.
-2. For each active point or checklist item, inspect the current code before editing.
+2. For each active point or checklist item, inspect the current code before editing. This code-reading pass is mandatory.
    - Check whether the code already satisfies the point's scope, conclusion, dependencies, and acceptance criteria.
-   - If already implemented, verify it and update the point to `执行状态: 已执行` with evidence.
+   - If the code fully implements the required plan point, do not edit code for that point. Verify the implementation, update the point to `执行状态: 已执行` with evidence, maintain the relevant plan statuses, then proceed to overall plan status recomputation before moving to the next point.
    - If partially implemented, continue from the actual code state instead of restarting.
    - If not implemented, implement exactly the planned change while preserving existing project conventions.
 3. After each modification point or checklist item is implemented, run a review-fix loop for that item:
@@ -63,6 +63,8 @@ Do not finish the task while any active modification point or ad hoc checklist i
 - Treat `last_plan.md` as the execution index, not as the only design source. Read linked source plan files when details, rationale, acceptance criteria, or contradictions matter.
 - Keep edits scoped to the plan. Do not bundle unrelated refactors, formatting churn, dependency upgrades, or behavior changes.
 - Prefer existing project patterns, APIs, tests, scripts, naming, and architecture.
+- Never change code merely because a plan item is marked `未执行`. First prove from the current code whether it is already complete, partially complete, or not implemented.
+- When all target plan points are already fully implemented, perform verification and plan status maintenance only; do not create code changes.
 - When the plan conflicts with current code contracts, resolve toward the safer compatible implementation and record the decision in `last_plan.md`.
 - If a planned change is obsolete because the code already implements a better equivalent, verify that equivalence and record the evidence instead of rewriting working code.
 - If implementation reveals that the plan itself is wrong or unsafe, mark the affected point `评审状态: 需修订`, revise the plan status/history, fix the implementation approach, then continue the review loop.
@@ -112,9 +114,19 @@ Finish only after all of these are true:
 5. Verification evidence is recorded or summarized for each active point or checklist item.
 6. The working tree contains only intended plan execution changes, plan status updates, and necessary supporting files.
 7. The final state has been committed and pushed.
+8. A concise execution summary report has been prepared for the user.
 
 Use the repository's normal git workflow. If commit or push is impossible because there is no git repository, no remote, no upstream, authentication failure, or an unsafe unresolved worktree conflict, report the blocker clearly with the remaining required action.
 
 ## Final Response
 
-Report the completed modification points, verification performed, `last_plan.md` status, and commit/push result. If anything could not be pushed, state whether the implementation and status updates are committed locally or only present in the working tree.
+Before ending, output a concise execution summary report that tells the user what was done in this run. Include:
+
+- execution source: user-provided plan, source plan file, or `last_plan.md`
+- completed modification points or checklist items
+- code changes made, or a clear note that code was already complete and only statuses were maintained
+- plan documents and status fields updated
+- verification performed and any skipped verification with reasons
+- commit and push result
+
+If anything could not be pushed, state whether the implementation and status updates are committed locally or only present in the working tree.
