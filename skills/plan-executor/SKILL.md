@@ -18,6 +18,31 @@ Execute a plan all the way through implementation, verification, status updates,
 5. If the plan is ambiguous, inspect local code and plan context, make the safest reasonable assumption, and record the assumption in the plan status history. Ask the user only when choosing incorrectly could cause destructive or cross-project changes.
 6. If the user provides an ad hoc plan and no `plan_index.md` is available or relevant, create an internal execution checklist from the user plan and complete that checklist. If a project-local `plan_index.md` exists, synchronize any matching points; otherwise do not block finalization on `plan_index.md`.
 
+## Pre-Execution Worktree Triage
+
+Before executing any plan item, inspect the current project and every target project's git worktree.
+
+1. Run `git status --short` in each project when it is a git repository.
+2. If there are uncommitted files, analyze staged, unstaged, and untracked content before editing.
+   - Use the available git diff/status details, including staged diffs and untracked file contents when needed.
+   - Determine whether each uncommitted file is user work, prior agent work, generated output, plan/status maintenance, or unrelated local noise.
+   - Do not overwrite, revert, or silently absorb existing changes.
+   - If any change is unclear but may be important, inspect enough surrounding code or documents to classify it safely.
+3. Decide which existing uncommitted changes should be committed before plan execution.
+   - Commit changes that are coherent, intentional, and useful to preserve before starting new implementation work.
+   - Leave changes uncommitted when they are incomplete, unrelated local scratch work, unsafe to commit, private/sensitive, or explicitly should remain in the working tree.
+   - If a change cannot be safely classified without user input and committing it could be harmful, ask the user before committing that change.
+4. Batch pre-existing changes into separate commits by the problem they solve, modification type, and intent.
+   - Put the same type of change in the same commit, such as requirement/document updates, source implementation, tests, tooling, generated artifacts, or formatting-only changes.
+   - Do not mix unrelated concerns in one commit merely because they were already present.
+   - Use commit messages that describe the problem or intent represented by that batch.
+5. Repeat analysis and batch commits until every existing change that should be committed has been committed.
+6. After the pre-execution commits, re-run `git status --short` and continue plan execution only after the remaining uncommitted files are understood and safe to work alongside.
+7. Track the pre-execution commit hashes and push them with the final plan execution commits using the repository's normal workflow.
+8. Mention these pre-execution commits and any intentionally uncommitted leftovers in the final execution summary.
+
+If the target project is not a git repository, skip commit actions but still inspect existing files before editing and report that git preflight was unavailable.
+
 ## Mandatory Execution Loop
 
 Repeat this loop until every active modification point or ad hoc checklist item is complete:
