@@ -7,7 +7,7 @@ description: Execute implementation plans from user-provided方案描述, execut
 
 ## Purpose
 
-Execute a plan all the way through implementation, verification, status updates, and final commit/push. Prefer the user's explicit plan or target. If no plan is supplied, use the current project's `docs/plans/plan_index.md`.
+Execute a plan all the way through implementation, verification, status updates, and final commit/push. Prefer the user's explicit plan or target. If no plan is supplied, use the current project's `docs/plans/plan_index.md`. A review pass is not enough to declare execution complete: after review passes, re-check the implementation against the plan's purpose and every concrete requirement, then keep fixing and reviewing until the code truly satisfies the plan's intended outcome.
 
 ## Inputs And Target Selection
 
@@ -55,15 +55,21 @@ Repeat this loop until every active modification point or ad hoc checklist item 
    - When using a user-provided ad hoc plan without `plan_index.md`, split the plan into concrete checklist items with scope, expected outcome, and verification evidence.
 2. For each active point or checklist item, inspect the current code before editing. This code-reading pass is mandatory.
    - Check whether the code already satisfies the point's scope, conclusion, dependencies, and acceptance criteria.
-   - If the code fully implements the required plan point, do not edit code for that point. Verify the implementation, update the point to `执行状态: 已执行` with evidence, maintain the relevant plan statuses, then proceed to overall plan status recomputation before moving to the next point.
+   - If the code appears to fully implement the required plan point, do not edit code for that point yet. Verify the implementation, then still run the review-fix loop and purpose-and-requirements confirmation pass before updating the point to `执行状态: 已执行` with evidence, maintaining relevant plan statuses, and proceeding to overall plan status recomputation.
    - If partially implemented, continue from the actual code state instead of restarting.
    - If not implemented, implement exactly the planned change while preserving existing project conventions.
-3. After each modification point or checklist item is implemented, run a review-fix loop for that item:
-   - Review the code diff against the plan point and source plan references.
+3. After each modification point or checklist item is implemented, or after an apparently complete pre-existing implementation is verified, run a review-fix loop for that item:
+   - Review the current implementation and any code diff against the plan point and source plan references.
    - Check for omissions, incorrect interpretation, unreasonable implementation choices, regressions, compatibility breaks, hidden side effects, missing tests, and mismatched statuses.
    - If review finds issues, fix them immediately, then review again.
    - Continue review -> fix -> review until the point passes.
-4. When a point passes review, update plan state.
+4. After a point passes review, run a purpose-and-requirements confirmation pass before updating plan state.
+   - Do not treat `评审通过`, `已评审`, or a clean review result as proof that implementation is complete.
+   - Re-read the plan's purpose, conclusion, scope, acceptance criteria, linked source plan details, and every concrete requirement for the point or checklist item.
+   - Compare the current code behavior and tests against those requirements one by one. Confirm that the implementation truly delivers the plan's intended outcome, not merely that the diff looks acceptable.
+   - If any requirement, edge case, integration behavior, status update, or verification evidence is missing, treat the point as incomplete. Implement the missing work, then return to the review-fix loop and repeat review and purpose confirmation from the start.
+   - Continue this review -> purpose confirmation -> fix cycle until there are no remaining gaps between the code and the plan's purpose.
+5. When a point passes both review and purpose confirmation, update plan state.
    - If using `plan_index.md`, update `plan_index.md`.
    - Set the point's `评审状态: 已评审` when the implementation still matches a reviewed plan.
    - Set the point's `执行状态: 已执行`.
@@ -71,7 +77,7 @@ Repeat this loop until every active modification point or ad hoc checklist item 
    - Preserve existing IDs, source links, conclusions, and history.
    - If using a user-provided ad hoc plan without `plan_index.md`, keep the completed checklist and verification evidence in working notes and summarize it in the final response.
    - If the point cites source plan documents, update those source documents when their implementation status is now known.
-5. Recompute overall plan status after every point.
+6. Recompute overall plan status after every point.
    - When using `plan_index.md`, recompute its overall status after every point.
    - `执行状态: 全部执行` only when every active point is `已执行`.
    - `执行状态: 部分执行` when at least one active point is done but some active point is not done, or any active point is `部分执行`.
@@ -79,7 +85,7 @@ Repeat this loop until every active modification point or ad hoc checklist item 
    - `评审状态: 全部评审` only when every active point is `已评审`.
    - `文档状态: 全部执行` only when all active points are reviewed and executed.
    - Use `需修订` if any active point or review result needs revision.
-   - When using an ad hoc checklist, consider the plan complete only when every checklist item has passed review and has verification evidence.
+   - When using an ad hoc checklist, consider the plan complete only when every checklist item has passed review, passed purpose-and-requirements confirmation, and has verification evidence.
 
 Do not finish the task while any active modification point or ad hoc checklist item remains pending. Return to the next pending item and continue.
 
@@ -93,6 +99,7 @@ Do not finish the task while any active modification point or ad hoc checklist i
 - When the plan conflicts with current code contracts, resolve toward the safer compatible implementation and record the decision in `plan_index.md`.
 - If a planned change is obsolete because the code already implements a better equivalent, verify that equivalence and record the evidence instead of rewriting working code.
 - If implementation reveals that the plan itself is wrong or unsafe, mark the affected point `评审状态: 需修订`, revise the plan status/history, fix the implementation approach, then continue the review loop.
+- Never declare a plan point complete only because review has passed. Completion requires explicit confirmation that the code implements the plan's purpose and all concrete requirements.
 
 ## Verification Rules
 
@@ -134,12 +141,13 @@ Finish only after all of these are true:
 
 1. Every active modification point in `plan_index.md`, or every item in the user-provided ad hoc checklist, is implemented.
 2. Every active modification point or checklist item passed the review-fix loop.
-3. `plan_index.md` accurately records per-point and overall statuses when it is part of the execution source.
-4. Source plan documents accurately record implementation status when they are referenced and available.
-5. Verification evidence is recorded or summarized for each active point or checklist item.
-6. The working tree contains only intended plan execution changes, plan status updates, and necessary supporting files.
-7. The final state has been committed and pushed.
-8. A concise execution summary report has been prepared for the user.
+3. Every active modification point or checklist item has been re-checked against the plan's purpose and concrete requirements after review, with any discovered gaps fixed and re-reviewed.
+4. `plan_index.md` accurately records per-point and overall statuses when it is part of the execution source.
+5. Source plan documents accurately record implementation status when they are referenced and available.
+6. Verification evidence is recorded or summarized for each active point or checklist item.
+7. The working tree contains only intended plan execution changes, plan status updates, and necessary supporting files.
+8. The final state has been committed and pushed.
+9. A concise execution summary report has been prepared for the user.
 
 Use the repository's normal git workflow. If commit or push is impossible because there is no git repository, no remote, no upstream, authentication failure, or an unsafe unresolved worktree conflict, report the blocker clearly with the remaining required action.
 
