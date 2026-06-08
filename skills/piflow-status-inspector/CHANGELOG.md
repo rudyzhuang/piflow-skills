@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.1.7 - 2026-06-08
+
+- 完善 piflow 状态报告的 agent 与 recovery 显示
+- Changed: 3 file(s).
+- Areas: skills(3).
+- Hints: scripts/tests, documentation.
+
+## 0.1.6 - 2026-06-08
+
+- 完善 piflow 状态报告的 agent 与 recovery 显示
+- Changed: 3 file(s).
+- Areas: skills(3).
+- Hints: scripts/tests, documentation.
+
 ## 0.1.5 - 2026-06-08
 
 - 完善 PiFlow 状态检查显示与任务统计

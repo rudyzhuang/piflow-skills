@@ -269,6 +269,71 @@ function stringifyValue(value) {
   return JSON.stringify(value);
 }
 
+function compactObject(obj) {
+  const result = {};
+  for (const [key, value] of Object.entries(obj)) {
+    if (value !== undefined && value !== null && value !== "") result[key] = value;
+  }
+  return result;
+}
+
+function extractAgentRuntime(sources, fallback = {}) {
+  const expanded = [];
+  for (const source of sources) {
+    if (!isPlainObject(source)) continue;
+    expanded.push(
+      source,
+      source.agent,
+      source.default_agent,
+      source.defaultAgent,
+      source.runtime_agent,
+      source.runtimeAgent,
+      source.agent_runtime,
+      source.agentRuntime,
+      source.agent_config,
+      source.agentConfig,
+      source.llm,
+      source.model
+    );
+  }
+  const provider = stringifyValue(firstDefined(
+    ...expanded.map((source) => pick(source, [
+      "agent_provider",
+      "agentProvider",
+      "default_agent_provider",
+      "defaultAgentProvider",
+      "provider",
+      "providerName",
+      "provider_name",
+      "runtimeProvider",
+      "runtime_provider",
+    ])),
+    fallback.provider
+  ));
+  const model = stringifyValue(firstDefined(
+    ...expanded.map((source) => pick(source, [
+      "agent_model",
+      "agentModel",
+      "default_agent_model",
+      "defaultAgentModel",
+      "model",
+      "modelName",
+      "model_name",
+      "llm_model",
+      "llmModel",
+      "runtimeModel",
+      "runtime_model",
+    ])),
+    fallback.model
+  ));
+  return compactObject({ provider, model });
+}
+
+function formatAgentRuntime(agent) {
+  if (!agent || (!agent.provider && !agent.model)) return "未识别";
+  return [agent.provider ? `agent_provider ${agent.provider}` : undefined, agent.model ? `模型 ${agent.model}` : undefined].filter(Boolean).join("，");
+}
+
 function arrayFromMaybeMap(value) {
   if (Array.isArray(value)) return value;
   if (isPlainObject(value)) {
@@ -495,6 +560,7 @@ function normalizeTask(raw, index) {
     branch: stringifyValue(pick(raw, ["branch", "gitBranch", "featureBranch"])),
     worktree: stringifyValue(pick(raw, ["worktree", "worktreePath", "worktree_path"])),
     agent: stringifyValue(pick(raw, ["agent", "agentId", "agent_id", "agentName", "worker"])),
+    agentRuntime: extractAgentRuntime([raw]),
     error: stringifyValue(pick(raw, ["error", "reason", "message", "failure_summary"])),
     nested,
   };
@@ -536,6 +602,7 @@ function normalizeStage(raw, index) {
   }
   const name = stageName(raw, index);
   const tasks = buildStageTasks(raw, name);
+  const taskAgentSources = tasks.flatMap((task) => [task.agentRuntime, task]);
   let status = normalizeStatus(pick(raw, ["status", "state", "phase", "result"]));
   if (status === "unknown") {
     if (raw.completed === true || raw.done === true || raw.success === true) status = "completed";
@@ -556,6 +623,7 @@ function normalizeStage(raw, index) {
     recoveryCount: countRecovery(raw, tasks),
     tasks,
     rawOutputs: isPlainObject(raw.outputs) ? raw.outputs : undefined,
+    agentRuntime: extractAgentRuntime([raw, raw.outputs, ...taskAgentSources]),
     output: pick(raw, ["output", "outputPath", "artifact", "artifactPath", "resultPath"]),
     pid: numberValue(pick(raw, ["pid", "processId", "process_id", "currentPid"])),
     log: stringifyValue(pick(raw, ["log", "logPath", "stageLog", "stageLogPath"])),
@@ -571,8 +639,26 @@ function flattenTasks(tasks) {
   return result;
 }
 
-function extractProjectInfo(data, projectDir) {
+function extractProjectInfo(data, projectDir, config = {}) {
   const sources = [data.project, data.projectInfo, data.pipeline?.project, data.metadata, data.meta, data.summary, data.req, data.request, data];
+  const defaultAgent = extractAgentRuntime([
+    data.agent,
+    data.default_agent,
+    data.defaultAgent,
+    data.pipeline?.agent,
+    data.pipeline?.default_agent,
+    data.pipeline?.defaultAgent,
+    data.pipeline?.defaults,
+    data.metadata?.agent,
+    data.meta?.agent,
+    data.req?.agent,
+    data.request?.agent,
+    config.agent,
+    config.default_agent,
+    config.defaultAgent,
+    config,
+    data,
+  ], { provider: "codex", model: "gpt-5.5" });
   const gitSources = [data.git, data.remote, data.repository, data.repo, data.project?.git, data.projectInfo?.git, data.pipeline?.project?.git, data.metadata?.git, data.meta?.git, data];
   const name = firstDefined(...sources.map((source) => pick(source, ["projectName", "name", "title", "appName"])));
   const description = firstDefined(...sources.map((source) => pick(source, ["description", "brief", "summary", "intro", "prompt", "goal"])));
@@ -592,6 +678,7 @@ function extractProjectInfo(data, projectDir) {
     remoteConfiguredAt: formatDate(firstDefined(...gitSources.map((source) => pick(source, ["remoteConfiguredAt", "remote_configured_at", "configuredAt", "configured_at"])))),
     createdAt: formatDate(createdAt),
     updatedAt: formatDate(updatedAt),
+    defaultAgent,
   };
 }
 
@@ -631,6 +718,14 @@ function extractPipelineInfo(data, stages, filePath) {
     fs.statSync(filePath).mtime
   ));
   const logSources = [data.logs, data.log, data.pipeline?.logs, data.pipeline?.log, data.pipeline?.current?.log_paths, data.pipeline?.current?.logs, data.metadata?.logs, data.meta?.logs, data];
+  const agentRuntime = extractAgentRuntime([
+    ...currentSources,
+    runningStage?.agentRuntime,
+    runningStage,
+    data.pipeline?.agent,
+    data.pipeline?.runtime_agent,
+    data.pipeline,
+  ]);
   return {
     currentStage,
     currentStatus,
@@ -643,6 +738,7 @@ function extractPipelineInfo(data, stages, filePath) {
     stagesUpdatedAt,
     globalLog: stringifyValue(firstDefined(...logSources.map((source) => pick(source, ["global", "globalLog", "globalLogPath", "pipelineLog", "pipelineLogPath", "logPath"])))),
     stageLog: stringifyValue(firstDefined(...logSources.map((source) => pick(source, ["stage", "stageLog", "stageLogPath", "currentStageLog", "currentStageLogPath"])), runningStage?.log)),
+    agentRuntime,
   };
 }
 
@@ -711,8 +807,10 @@ function normalizeRecoveryRecord(raw, index) {
     rerunStage: stringifyValue(pick(rerunScope, ["stage", "action"])),
     rerunFeatures: Array.isArray(rerunScope?.features) ? rerunScope.features.map(String) : undefined,
     rootCauseSummary: stringifyValue(pick(rootCause, ["failure_symptom", "failureSymptom", "direct_cause", "directCause", "summary"])),
+    filesChanged: Array.isArray(raw.files_changed) ? raw.files_changed.map(stringifyValue).filter(Boolean) : undefined,
     filesChangedCount: Array.isArray(raw.files_changed) ? raw.files_changed.length : undefined,
     pushed: typeof raw.pushed === "boolean" ? raw.pushed : undefined,
+    durationMs: durationFromFields(raw),
     at: formatDate(pick(raw, ["at", "createdAt", "created_at", "time"])),
     title: stringifyValue(pick(raw, ["title", "name"])) || undefined,
   };
@@ -836,7 +934,7 @@ function stageStatusLabel(stage) {
   return stage.status;
 }
 
-function currentRunSummary(pipeline, stages) {
+function currentRunSummary(pipeline, stages, defaultAgent) {
   const currentKey = stageKey(pipeline.currentStage || stages.find((stage) => stage.status === "running")?.name || "");
   const currentStage = stages.find((stage) => (stage.key || stageKey(stage.name)) === currentKey) || stages.find((stage) => stage.status === "running");
   if (!currentStage) return undefined;
@@ -852,6 +950,7 @@ function currentRunSummary(pipeline, stages) {
     status: pipeline.currentStatus || currentStage.status,
     progress: { completed, total },
     stageDurationMs: pipeline.elapsedMs ?? currentStage.durationMs,
+    agentRuntime: extractAgentRuntime([pipeline.agentRuntime, currentStage.agentRuntime, currentStage], defaultAgent),
     completedTasks,
     runningTasks,
     failedTasks,
@@ -1028,7 +1127,8 @@ function ensurePipelineStages(data, stages) {
 function summarize(data, filePath, projectDir) {
   const stages = findStageCollection(data).map(normalizeStage);
   ensurePipelineStages(data, stages);
-  applyDerivedTaskDefinitions(stages, loadProjectConfig(projectDir));
+  const config = loadProjectConfig(projectDir);
+  applyDerivedTaskDefinitions(stages, config);
   const recoveryRecords = extractRecoveryRecords(data);
   enrichStageTasks(stages, recoveryRecords);
   const completedStages = stages.filter((stage) => stage.status === "completed");
@@ -1041,7 +1141,7 @@ function summarize(data, filePath, projectDir) {
   const runningRuntimeMs = sumNumbers(runningStages.map((stage) => stage.durationMs));
   return {
     filePath,
-    project: extractProjectInfo(data, projectDir),
+    project: extractProjectInfo(data, projectDir, config),
     pipeline: extractPipelineInfo(data, stages, filePath),
     codegen: extractCodegenProgress(data, stages),
     recovery: extractRecoveryInfo(data),
@@ -1071,7 +1171,7 @@ function summarize(data, filePath, projectDir) {
     runningStages,
     pendingStages,
     unknownStages,
-    currentRun: currentRunSummary(extractPipelineInfo(data, stages, filePath), stages),
+    currentRun: currentRunSummary(extractPipelineInfo(data, stages, filePath), stages, extractProjectInfo(data, projectDir, config).defaultAgent),
     futureStages: futureStageSummary(extractPipelineInfo(data, stages, filePath).currentStage, stages),
   };
 }
@@ -1099,6 +1199,7 @@ function renderTaskLine(task) {
   if (task.branch) extra.push(`分支 ${task.branch}`);
   if (task.worktree) extra.push(`worktree ${task.worktree}`);
   if (task.agent) extra.push(`agent ${task.agent}`);
+  if (task.agentRuntime?.provider || task.agentRuntime?.model) extra.push(formatAgentRuntime(task.agentRuntime));
   if (task.error) extra.push(`原因 ${task.error}`);
   return `- ${task.name}（${meta.join("，")}）${extra.length ? `；${extra.join("；")}` : ""}`;
 }
@@ -1108,6 +1209,24 @@ function renderDetailedTasks(title, tasks) {
     `### ${title}`,
     listLine(tasks, renderTaskLine),
   ].join("\n");
+}
+
+function renderRecoveryRecord(record) {
+  const title = record.stage ? record.stage : (record.title || "恢复记录");
+  const target = [
+    record.repairTarget ? `目标 ${record.repairTarget}` : undefined,
+    record.featureId,
+    record.failedFeatures?.length ? record.failedFeatures.join(",") : undefined,
+  ].filter(Boolean).join(" / ");
+  const meta = [
+    record.at ? `时间 ${record.at}` : undefined,
+    `耗时 ${formatDuration(record.durationMs)}`,
+    record.decision ? `决策 ${record.decision}` : undefined,
+    target || undefined,
+    record.filesChanged?.length ? `文件 ${record.filesChanged.join(",")}` : undefined,
+    record.message || record.rootCauseSummary,
+  ].filter(Boolean);
+  return `- ${title}: ${meta.join("，") || "未识别详情"}`;
 }
 
 function renderReport(summary) {
@@ -1128,6 +1247,7 @@ function renderReport(summary) {
   if (summary.project.remoteUrl) lines.push(`- Remote URL: ${summary.project.remoteUrl}`);
   if (summary.project.defaultBranch) lines.push(`- 默认分支: ${summary.project.defaultBranch}`);
   if (summary.project.remoteConfiguredAt) lines.push(`- Remote 配置时间: ${summary.project.remoteConfiguredAt}`);
+  lines.push(`- default agent: ${formatAgentRuntime(summary.project.defaultAgent)}`);
   if (summary.project.createdAt) lines.push(`- 开始时间: ${summary.project.createdAt}`);
   if (summary.project.updatedAt) lines.push(`- 最近更新时间: ${summary.project.updatedAt}`);
   lines.push("");
@@ -1135,6 +1255,7 @@ function renderReport(summary) {
   if (summary.currentRun) {
     lines.push(`- 流水线阶段: ${summary.currentRun.stage}`);
     lines.push(`- 状态: ${summary.currentRun.status}`);
+    lines.push(`- stage agent: ${formatAgentRuntime(summary.currentRun.agentRuntime)}`);
     lines.push(`- 进度: ${summary.currentRun.progress.completed} / ${summary.currentRun.progress.total}`);
     lines.push(`- 当前 stage 有效运行时间: ${formatDuration(summary.currentRun.stageDurationMs)}`);
     lines.push("");
@@ -1150,6 +1271,12 @@ function renderReport(summary) {
   } else {
     lines.push("- 未识别当前运行 stage");
   }
+  lines.push("");
+  lines.push("## Recovery");
+  lines.push(listLine(summary.recoveryRecords, renderRecoveryRecord));
+  lines.push("");
+  lines.push("## 已完成 Stages");
+  lines.push(listLine(summary.completedStages, (stage) => `- ${stage.name}: 执行的累计时间 ${formatDuration(stage.durationMs)}，实际使用的 agent_provider ${stage.agentRuntime?.provider || summary.project.defaultAgent?.provider || "未识别"}${stage.agentRuntime?.model || summary.project.defaultAgent?.model ? `，模型 ${stage.agentRuntime?.model || summary.project.defaultAgent?.model}` : ""}${stage.attempts ? `，尝试 ${stage.attempts} 次` : ""}`));
   lines.push("");
   lines.push("## 后续阶段");
   lines.push(listLine(summary.futureStages, (stage) => `- ${stage.name}: ${stage.statusLabel} / 已执行累计时间 ${formatDuration(stage.durationMs)}`));
@@ -1223,7 +1350,7 @@ function renderReport(summary) {
   }
   lines.push("");
   lines.push("## 已完成 Stage");
-  lines.push(listLine(summary.completedStages, (stage) => `- ${stage.name}: ${formatDuration(stage.durationMs)}${stage.attempts ? `，尝试 ${stage.attempts} 次` : ""}`));
+  lines.push(listLine(summary.completedStages, (stage) => `- ${stage.name}: ${formatDuration(stage.durationMs)}，agent_provider ${stage.agentRuntime?.provider || summary.project.defaultAgent?.provider || "未识别"}${stage.agentRuntime?.model || summary.project.defaultAgent?.model ? `，模型 ${stage.agentRuntime?.model || summary.project.defaultAgent?.model}` : ""}${stage.attempts ? `，尝试 ${stage.attempts} 次` : ""}`));
   lines.push("");
   lines.push("## 失败 Stage");
   lines.push(listLine(summary.failedStages, (stage) => `- ${stage.name}: 已运行 ${formatDuration(stage.durationMs)}，失败 ${stage.failures || 0} 次，recovery ${stage.recoveryCount || 0} 次`));
@@ -1269,17 +1396,7 @@ function renderReport(summary) {
   if (summary.recoveryRecords.length) {
     lines.push("");
     lines.push("## 恢复记录");
-    lines.push(listLine(summary.recoveryRecords, (record) => {
-      const countText = record.count !== undefined ? ` 修复 ${record.count} 次` : (record.attempt !== undefined ? ` attempt ${record.attempt}` : "");
-      const prefix = record.stage ? `${record.stage}${countText}` : (record.title || "恢复记录");
-      const meta = [record.repairTarget, record.category, record.decision].filter(Boolean).join("/");
-      const suffix = [
-        meta ? `(${meta})` : "",
-        record.message ? `: ${record.message}` : "",
-        record.rerunFeatures?.length ? `；续跑 ${record.rerunStage || record.stage}: ${record.rerunFeatures.join(",")}` : "",
-      ].join("");
-      return `- ${prefix}${suffix}`;
-    }));
+    lines.push(listLine(summary.recoveryRecords, renderRecoveryRecord));
   }
   return lines.join("\n");
 }

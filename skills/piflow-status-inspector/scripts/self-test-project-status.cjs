@@ -9,6 +9,7 @@ const { spawnSync } = require("node:child_process");
 
 const skillDir = path.resolve(__dirname, "..");
 const script = path.join(skillDir, "scripts", "project_status.cjs");
+const skillDoc = fs.readFileSync(path.join(skillDir, "SKILL.md"), "utf8");
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "piflow-status-"));
 const outDir = path.join(tmp, "output-stages");
 fs.mkdirSync(outDir, { recursive: true });
@@ -20,12 +21,30 @@ const stages = {
     id: "proj-123",
     name: "demo",
   },
+  agent: {
+    agent_provider: "codex",
+    agent_model: "gpt-5.5",
+  },
   pipeline: {
     current_stage: "codegen",
     status: "running",
     recovery_history: [
-      { stage: "codegen", repair_target: "feature", feature_id: "AUTH-LOGIN-001", decision: "retry_only" },
-      { stage: "codegen", repair_target: "feature", failed_features: ["AUTH-LOGIN-001"], decision: "fix" },
+      {
+        stage: "codegen",
+        repair_target: "feature",
+        feature_id: "AUTH-LOGIN-001",
+        decision: "retry_only",
+        started_at: "2026-06-08 08:18:00 +0800",
+        completed_at: "2026-06-08 08:19:00 +0800",
+      },
+      {
+        stage: "codegen",
+        repair_target: "feature",
+        failed_features: ["AUTH-LOGIN-001"],
+        decision: "fix",
+        duration_ms: 90000,
+        files_changed: ["src/auth.ts", "tests/auth.test.ts"],
+      },
     ],
   },
   stages: {
@@ -33,6 +52,8 @@ const stages = {
       status: "completed",
       started_at: "2026-06-08 08:00:00 +0800",
       completed_at: "2026-06-08 08:01:00 +0800",
+      agent_provider: "cursor_sdk",
+      agent_model: "claude-4",
       outputs: {
         client_targets: ["admin", "backend"],
       },
@@ -41,7 +62,7 @@ const stages = {
       status: "completed",
       outputs: {
         features: [
-          { feature_id: "AUTH-LOGIN-001", name: "login" },
+          { feature_id: "AUTH-LOGIN-001", name: "login", agent_provider: "cursor_sdk", agent_model: "claude-4" },
           { feature_id: "BACKEND-HEALTH-001", name: "health" },
         ],
       },
@@ -49,6 +70,8 @@ const stages = {
     codegen: {
       status: "running",
       started_at: "2026-06-08 08:10:00 +0800",
+      agent_provider: "codex",
+      agent_model: "gpt-5.5-codegen",
       features: {
         "AUTH-LOGIN-001": {
           status: "running",
@@ -94,7 +117,9 @@ const summary = JSON.parse(result.stdout);
 
 assert.strictEqual(summary.project.rootDir, tmp);
 assert.strictEqual(summary.project.localRepo, tmp);
+assert.deepStrictEqual(summary.project.defaultAgent, { provider: "codex", model: "gpt-5.5" });
 assert.strictEqual(summary.currentRun.stage, "codegen");
+assert.deepStrictEqual(summary.currentRun.agentRuntime, { provider: "codex", model: "gpt-5.5-codegen" });
 assert.strictEqual(summary.currentRun.progress.completed, 1);
 assert.strictEqual(summary.currentRun.progress.total, 3);
 assert(summary.currentRun.completedTasks.some((task) => task.name === "BACKEND-HEALTH-001" && task.retryCount === 0));
@@ -103,13 +128,28 @@ assert(auth, "AUTH-LOGIN-001 should be running");
 assert.strictEqual(auth.retryCount, 2);
 assert.strictEqual(auth.repairCount, 1);
 assert.strictEqual(auth.durationMs, 120000);
+assert(summary.recoveryRecords.some((record) => record.decision === "fix" && record.durationMs === 90000));
+assert(summary.completedStages.some((stage) => stage.name === "setup" && stage.agentRuntime.provider === "cursor_sdk"));
+assert(summary.completedStages.some((stage) => stage.name === "prd" && stage.agentRuntime.provider === "cursor_sdk"));
 assert(summary.futureStages.some((stage) => stage.name === "ui-scenarios" && stage.statusLabel === "未开始"));
 
 const text = spawnSync(process.execPath, [script, "--cwd", tmp], { encoding: "utf8" });
 assert.strictEqual(text.status, 0, text.stderr);
 assert(text.stdout.includes("## 项目介绍"));
+assert(text.stdout.includes("- default agent: agent_provider codex，模型 gpt-5.5"));
+assert(text.stdout.includes("- stage agent: agent_provider codex，模型 gpt-5.5-codegen"));
 assert(text.stdout.includes("- 进度: 1 / 3"));
+assert(text.stdout.includes("## Recovery"));
+assert(text.stdout.includes("耗时 1分钟30秒"));
+assert(text.stdout.includes("文件 src/auth.ts,tests/auth.test.ts"));
+assert(text.stdout.includes("## 已完成 Stages"));
+assert(text.stdout.includes("实际使用的 agent_provider cursor_sdk"));
 assert(text.stdout.includes("## 后续阶段"));
+assert(skillDoc.includes("## Required Output Contract"));
+assert(skillDoc.includes("Never answer only with legacy bullets"));
+assert(skillDoc.includes("## 项目介绍"));
+assert(skillDoc.includes("## 当前运行"));
+assert(skillDoc.includes("## 后续阶段"));
 
 const codeReviewTmp = fs.mkdtempSync(path.join(os.tmpdir(), "piflow-status-code-review-"));
 const codeReviewOutDir = path.join(codeReviewTmp, "output-stages");
