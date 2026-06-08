@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.1.5 - 2026-06-08
+
+- 完善 PiFlow 状态检查显示与任务统计
+- Changed: 2 file(s).
+- Areas: skills(2).
+- Hints: scripts/tests.
+- Added: 1, Modified: 1, Deleted: 0.
+
+## 0.1.4 - 2026-06-08
+
+- 完善 PiFlow 状态检查显示与任务统计
+- Changed: 2 file(s).
+- Areas: skills(2).
+- Hints: scripts/tests.
+- Added: 1, Modified: 1, Deleted: 0.
+
 ## 0.1.3 - 2026-06-05
 
 - 增强 PiFlow 状态检查的 recovery 运行分析
