@@ -1,6 +1,6 @@
 # piflow-skills
 
-面向 Cursor、Codex 和 Claude Code 的个人 Agent Skills 集合。
+面向 Cursor、Codex、OpenCode 和 Claude Code 的个人 Agent Skills 集合。
 
 本仓库把多个 skill 统一放在一个代码库中，并通过根目录的统一安装器
 `install.mjs` 安装或同步到本机各 Agent 的 skill 目录。可安装的 skill
@@ -28,6 +28,7 @@
 | --- | --- |
 | Cursor | `~/.cursor/skills/<skill-name>` |
 | Codex | `~/.codex/skills/<skill-name>` |
+| OpenCode | `~/.config/opencode/skills/<skill-name>` |
 | Claude Code | `~/.claude/skills/<skill-name>` |
 
 默认安装方式是创建符号链接，从 Agent 的 skill 目录指回本仓库。这样本机只需要维护一份可编辑源码。移动仓库位置后，需要重新运行安装器。
@@ -74,13 +75,14 @@ node install.mjs req-maker --dry-run
 ```bash
 node install.mjs --only codex
 node install.mjs req-maker --only cursor
+node install.mjs req-maker --only opencode
 node install.mjs commit-push --only claude
 ```
 
 只安装到多个指定 Agent：
 
 ```bash
-node install.mjs req-maker --only codex --only claude
+node install.mjs req-maker --only codex --only opencode --only claude
 ```
 
 安装到所有已知 Agent 目录，即使没有检测到对应 Agent：

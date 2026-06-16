@@ -42,14 +42,20 @@ Use `export-req-md` when the user mentions `req-md-export`, `ReqMdExportDocument
 
 4. Extract and normalize requirements.
    - Identify project name, target users, value proposition, client targets, features, non-functional needs, test cases, deployment domain, auth plan, technical constraints, release scope, risks, and notes.
+   - In draft mode, first summarize the project's overall functional requirements into a natural-language `freeform_content` narrative before splitting them into structured features. This narrative should describe what the product must let users accomplish, the main workflows, important states, and expected business outcomes.
+   - Write the overall functional narrative to the project-level `freeform_content` field under `## 核心功能 *`, before the first `### Feature:`. Use `freeform_source: from_user` because this narrative is derived from user-provided sources even when AI has organized the wording.
+   - If an older project-local template does not already include the project-level core-feature freeform fields, add `freeform_source:` and `freeform_content:` under `## 核心功能 *` because this is part of the draft output contract.
    - For Figma Make sources, preserve the chronological product intent:
      - Use the first user prompt as the baseline product/design brief.
      - Apply later user messages as requirement deltas, especially changes to features, navigation, status behavior, filters, integrations, and page layout.
      - Use version titles as evidence of feature evolution, not as final user-facing requirement names unless they are clear.
      - Convert UI-only elements into product requirements when they imply behavior, state, validation, empty/loading states, or integration needs.
    - Convert vague ideas into product-facing requirements, not implementation chores.
+   - Split the overall functional narrative into feature blocks only after the main user goals and workflows are clear. Each feature block's `freeform_content` must contain the natural-language requirement slice for that specific feature, not a copy of the whole project summary.
    - Keep `priority`, `phase`, and `client_targets` consistent with the template vocabulary.
    - Generate `feature_id` for every new feature according to the PiFlow naming rules below; do not leave generated feature IDs blank.
+   - Include `structured_source: user` and `freeform_source: from_user` in every feature and test case block in draft mode when the text is derived from user-provided source material. Use `freeform_source: from_ai` only for content inferred later without direct source text.
+   - Include a `freeform_content:` field in every feature and test case block in draft mode, placed before `user_stories`. Feature `freeform_content` must be filled with the feature's corresponding natural-language functional description whenever the feature is generated from the project narrative or source material.
    - If information is missing but can be reasonably inferred, fill it and avoid overexplaining.
    - If information is genuinely unknown, write `暂不确定` or leave the field empty when the template allows it.
 
@@ -68,6 +74,7 @@ Use `export-req-md` when the user mentions `req-md-export`, `ReqMdExportDocument
 7. Run a requirements-quality review loop.
    - Review the revised `inputs/req.md` again for requirement reasonableness, internal consistency, and completeness.
    - Check that features are product-facing, priorities and phases are coherent, generated `feature_id` values are unique and valid, `client_targets` match the described behavior, dependencies are reflected, non-functional needs are appropriate, and test cases cover the launch-blocking flows.
+   - In draft mode, check that the overall functional narrative was represented and that every generated feature has a non-empty `freeform_content` matching that feature's own scope. Fail and revise if a feature's `freeform_content` is blank, only repeats the title, copies the whole project summary, or describes another feature.
    - Produce concrete review findings. If findings exist, revise `inputs/req.md` according to them, then repeat this review-and-revise cycle.
    - Stop only when the review passes with no material reasonableness, consistency, or completeness issues.
 
@@ -120,8 +127,8 @@ node scripts/export-req-md.mjs \
    - Normalize string fields with trim and array fields to arrays.
    - Required feature traceability fields: `requirement_id`, `item_id`, `source_item_id`, `version_number`, `version_hash`, `version_status`. `source_item_id` may be empty only for non-derived items.
    - Required test case traceability fields: `item_id`, `source_item_id`, `version_number`, `version_hash`, and `version_status`. `source_item_id` may be empty only for non-derived items.
-   - Require and validate Feature `structured_content`, `structured_source`, `freeform_content`, and `freeform_source`; `structured_source` and `freeform_source` must be `user | ai`.
-   - Require and validate Test Case `structured_content`, `structured_source`, `freeform_content`, and `freeform_source`; `structured_source` and `freeform_source` must be `user | ai`.
+   - Require and validate Feature `structured_content`, `structured_source`, `freeform_content`, and `freeform_source`; `structured_source` must be `user | ai`, and `freeform_source` accepts `user | ai | from_user | from_ai`.
+   - Require and validate Test Case `structured_content`, `structured_source`, `freeform_content`, and `freeform_source`; `structured_source` must be `user | ai`, and `freeform_source` accepts `user | ai | from_user | from_ai`.
    - For AI-derived features or test cases (`structured_source: ai`), require `source_item_id` so the derived structured item can trace back to its original freeform item.
    - Reject or fail review when `features[]` or `test_cases[]` contains an original freeform source item that was already split into derived structured items. Backend should exclude those source items before export; the skill must not duplicate them in `req.md`.
    - Required feature content fields: `heading_title`, `priority`, `phase`, `client_targets`, and `description`. Prefer values from `structured_content` for template fields; if `description` is empty and `freeform_content` exists, use `freeform_content` only as a description fallback.
@@ -131,17 +138,16 @@ node scripts/export-req-md.mjs \
    - Prefer the provided `template_path`.
    - Otherwise prefer `/Users/guodongzhuang/github/piflow/templates/req-template.md` when readable.
    - Otherwise use this skill's bundled fallback: `assets/req-template.md`.
-   - For piflow-cli export mode, prefer the piflow repository template structure when available: `## 部署 *` with `cloud_provider` and `domain=`.
-   - If using the bundled fallback, `## 部署域名` with `DOMAIN=` is acceptable.
+   - Both the piflow repository template and the bundled fallback now use `## 部署 *` with `cloud_provider` and `domain=`.
    - Use the template for section order and field names; do not copy instructional comments into the final output.
 
 5. Render structured JSON to Markdown.
    - Always output required sections in template order.
-   - Render client targets as `- <target>: <positioning>` and include `layout_shell`, `default_route`, and `menu` for admin layout when present.
+   - Render client targets as `- <target>: <positioning>`. Include `layout_shell` and `default_route` for any target that has them. Include `menu` only for admin targets.
    - Render each feature as `### Feature: <heading_client> 端 - <heading_title>`.
-   - Include these fields in every feature block when available, in this order: `requirement_id`, `item_id`, `source_item_id`, `version_number`, `version_hash`, `version_status`, `feature_id`, `priority`, `phase`, `client_targets`, `description`, `user_stories`, `acceptance_criteria`, `dependencies`.
+   - Include these fields in every feature block when available, in this order: `requirement_id`, `item_id`, `source_item_id`, `version_number`, `version_hash`, `version_status`, `feature_id`, `priority`, `phase`, `client_targets`, `structured_source`, `freeform_source`, `description`, `freeform_content`, `user_stories`, `acceptance_criteria`, `dependencies`.
    - In `acceptance_criteria`, automatically include traceability lines for `requirement_id`, `item_id`, `source_item_id`, `version_number`, `version_hash`, and `version_status` before business criteria so reports can map back to requirement versions and split source items.
-   - Do not render Backend-only fields except explicit traceability fields. In particular, do not render `structured_source`, `freeform_source`, `structured_content`, or `freeform_content` as standalone output fields.
+   - Do not render Backend-only fields except explicit traceability and provenance fields. Render `structured_source`, `freeform_source`, and `freeform_content`; do not render raw `structured_content`.
    - Render each test case as `### TC-001: <title>` with `feature_id`, `item_id`, `source_item_id`, `version_number`, `version_hash`, `version_status`, `client_target`, `type`, `priority`, `preconditions`, `steps`, `expected`, and `test_data`.
    - Use `  -` list indentation. For empty arrays, preserve the section and output a single empty list placeholder.
    - For deployment domains, write only a host/domain value. Do not include `https://` or paths such as `/admin`, `/website`, or `/api`.
@@ -154,12 +160,12 @@ node scripts/export-req-md.mjs \
 
 7. Run export self-checks before writing or finalizing.
    - Required sections must exist and appear in template order.
-   - Accept either the piflow export deployment section (`## 部署 *`) or the bundled draft section (`## 部署域名`) according to the chosen template.
-   - Each `### Feature:` block must contain `feature_id:`, `priority:`, `phase:`, `client_targets:`, `description:`, `user_stories:`, `acceptance_criteria:`, and `dependencies:`.
+   - Accept `## 部署 *` as the deployment section heading for both the piflow repository template and the bundled fallback. Also accept `## 部署域名` only for legacy templates that have not been updated.
+   - Each `### Feature:` block must contain `feature_id:`, `priority:`, `phase:`, `client_targets:`, `structured_source:`, `freeform_source:`, `description:`, `freeform_content:`, `user_stories:`, `acceptance_criteria:`, and `dependencies:`.
    - Each Backend-derived feature must contain `requirement_id:`, `item_id:`, `source_item_id:`, `version_number:`, `version_hash:`, and `version_status:`.
    - Each Backend-derived test case must contain `item_id:`, `source_item_id:`, `version_number:`, `version_hash:`, `version_status:`, `client_target:`, `type:`, and `priority:`.
    - AI-derived features and test cases must preserve `source_item_id`; original freeform source items that were split must not be rendered again.
-   - `domain=` or `DOMAIN=` must not contain protocol or path.
+   - `domain=` must not contain protocol or path. For legacy templates, `DOMAIN=` is also accepted with the same rule.
    - Output must not contain `device_api_key`, `cursor_api_key`, `api_key_hash`, `Authorization`, `Bearer <token>`, Admin session cookies, or internal stack traces.
 
 8. Write result and return a concise status.
@@ -173,6 +179,7 @@ node scripts/export-req-md.mjs \
 - Write in Chinese unless the user asks for another language.
 - Preserve comments only when they help future editing; remove placeholder examples that would confuse the final requirements.
 - Use business language for features: describe what users can accomplish and what success looks like.
+- In `draft-from-sources` mode, treat `freeform_content` as required for generated features. Write it as plain natural-language functional intent for that feature, including the user goal, expected behavior, important states, and business value when known.
 - Preserve existing non-empty feature IDs for existing features.
 - Generate feature IDs for new features; never leave a new feature's `feature_id` blank.
 - In `export-req-md` mode, preserve Backend-provided feature IDs and traceability fields exactly; do not generate missing feature IDs unless the caller explicitly asks for draft-style normalization.
@@ -212,7 +219,7 @@ node scripts/export-req-md.mjs \
 - Preserve traceability fields in feature blocks and acceptance criteria: `requirement_id`, `item_id`, `source_item_id`, `version_number`, `version_hash`, and `version_status`.
 - Preserve test case traceability fields: `item_id`, `source_item_id`, `version_number`, `version_hash`, and `version_status`.
 - Prefer `structured_content` values over duplicated top-level template fields when rendering Backend export JSON.
-- Treat `freeform_content` as a fallback only; never render it as a standalone section.
+- Render feature `freeform_content` as an explicit provenance field in `req.md`; still use it as a description fallback only when `structured_content.description` is empty.
 - Support AI one-to-many freeform splitting by rendering only derived structured items and preserving their `source_item_id`; do not duplicate the original split freeform item.
 - Support both future structured JSON (`ReqMdExportDocument`) and current rendered Markdown (`text/markdown; charset=utf-8`) responses.
 - Prefer structured JSON for validation and rendering. Treat rendered Markdown as a temporary compatibility path that receives structural and security validation only.
@@ -228,7 +235,7 @@ node scripts/export-req-md.mjs \
 - `## 核心功能 *`
 - `## 非功能需求`
 - `## 测试用例`
-- `## 部署域名` for bundled draft template, or `## 部署 *` for piflow-cli export template
+- `## 部署 *`
 - `## 鉴权方案`
 - `## 技术约束`
 - `## 其他说明`
