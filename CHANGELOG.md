@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.4 - 2026-06-16
+
+- 新增 add-skill-lib 并完善安装入口
+- Changed: 9 file(s).
+- Areas: skills(7), .(2).
+- Hints: documentation.
+- Added: 7, Modified: 2, Deleted: 0.
+
 ## 0.1.3 - 2026-06-05
 
 - 增强 PiFlow 状态检查的 recovery 运行分析

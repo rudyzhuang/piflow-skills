@@ -1,0 +1,7 @@
+interface:
+  display_name: "Add Skill Library"
+  short_description: "将新的 skill library 纳入 PiFlow 流水线模板与运行时解析"
+  default_prompt: "Use $add-skill-lib to add a new skill library into the PiFlow pipeline repository."
+
+policy:
+  allow_implicit_invocation: true

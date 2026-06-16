@@ -18,6 +18,7 @@
 | `plan-executor` | 执行用户方案、源方案文档或 `docs/plans/plan_index.md` 中的修改点，完成实现、评审、验证、状态回写、提交和推送。 | `skills/plan-executor/SKILL.md`, `skills/plan-executor/agents/openai.yaml` |
 | `commit-push` | 将“提交并推送”固化为可重复 Git 流程：检查变更、归纳提交意图、可选升版、commit、push，并可选创建缺失的 GitHub remote。 | `skills/commit-push/SKILL.md`, `skills/commit-push/scripts/commit_push.cjs`, `skills/commit-push/scripts/github_remote.cjs` |
 | `piflow-status-inspector` | 读取当前项目 `output-stages/stages.json`，汇总 PiFlow 运行状态、stage 进度、运行时间、失败次数、recovery 次数和当前 stage 子任务完成情况。 | `skills/piflow-status-inspector/SKILL.md`, `skills/piflow-status-inspector/scripts/project_status.cjs`, `skills/piflow-status-inspector/agents/openai.yaml` |
+| `add-skill-lib` | 将新的 skill library 纳入 PiFlow 流水线仓库，完成模板登记、skill 暴露、`path + locator` 校验和 runtime self-test 回归。 | `skills/add-skill-lib/SKILL.md`, `skills/add-skill-lib/agents/openai.yaml` |
 
 ## 支持的 Agent
 
@@ -204,6 +205,14 @@ node install.mjs --all-skills
       install.mjs
       agents/
       scripts/
+    add-skill-lib/
+      SKILL.md
+      README.md
+      README.zh-CN.md
+      VERSION
+      CHANGELOG.md
+      install.mjs
+      agents/
 ```
 
 ## 运行要求
