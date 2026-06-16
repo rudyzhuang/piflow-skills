@@ -2,7 +2,7 @@
 
 Chinese documentation: [README.zh-CN.md](./README.zh-CN.md).
 
-`add-skill-lib` guides agents through adding a new skill library to the PiFlow pipeline repository. It covers source placement under `skill-libraries/`, project-level template registration, skill exposure in `skills-template.yaml`, `path + locator` validation, `skill.yaml` metadata, regression self-tests, and the single-copy runtime constraint.
+`add-skill-lib` guides agents through adding a Git-hosted skill library to the PiFlow pipeline repository. It starts from a user-provided Git URL, clones or synchronizes the repository into `skill-libraries/<library-name>/`, extracts the fields needed by PiFlow templates, registers the library, exposes discovered skills, validates the `path + locator` contract, completes `skill.yaml` metadata, updates regression self-tests, and preserves the single-copy runtime constraint.
 
 Agent instructions are in [SKILL.md](./SKILL.md).
 
@@ -25,9 +25,13 @@ node install.mjs
 Ask the agent:
 
 ```text
-把这个新的 skill library 纳入 PiFlow 流水线。
+把这个 Git 地址里的 skill library 纳入 PiFlow 流水线：https://github.com/example/piflow-skills.git
 ```
 
 ```text
-新增一个 skill library，并接入对应 stage。
+add piflow skill lib https://github.com/example/piflow-skills.git
+```
+
+```text
+新增一个 skill library，clone 到 skill-libraries/acme-skills，并从仓库提取字段接入对应 stage。
 ```

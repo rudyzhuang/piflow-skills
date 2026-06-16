@@ -2,7 +2,7 @@
 
 English documentation: [README.md](./README.md).
 
-`add-skill-lib` 用于指导 agent 将新的 skill library 纳入 PiFlow 流水线仓库。它覆盖源码落位、项目级模板登记、skill 选择模板暴露、`path + locator` 合同校验、`skill.yaml` 元数据补齐、self-test 回归，以及运行时 single-copy 约束。
+`add-skill-lib` 用于指导 agent 将 Git 托管的 skill library 纳入 PiFlow 流水线仓库。它从用户提供的 Git 地址开始，自动 clone 或同步到 `skill-libraries/<library-name>/`，从仓库中提取 PiFlow 模板所需字段，完成 library 登记、skill 暴露、`path + locator` 合同校验、`skill.yaml` 元数据补齐、self-test 回归，以及运行时 single-copy 约束。
 
 Agent 操作指南见 [SKILL.md](./SKILL.md)。
 
@@ -25,11 +25,15 @@ node install.mjs
 安装后可以直接询问：
 
 ```text
-把这个新的 skill library 纳入 PiFlow 流水线。
+把这个 Git 地址里的 skill library 纳入 PiFlow 流水线：https://github.com/example/piflow-skills.git
 ```
 
 ```text
-新增一个 skill library，并接入对应 stage。
+增加piflow技能库 https://github.com/example/piflow-skills.git
+```
+
+```text
+新增一个 skill library，clone 到 skill-libraries/acme-skills，并从仓库提取字段接入对应 stage。
 ```
 
 ## 项目结构

@@ -18,7 +18,7 @@ For the Chinese version of this document, see [README.zh-CN.md](./README.zh-CN.m
 | `plan-executor` | Execute user-provided plans, source plan documents, or `docs/plans/plan_index.md` items all the way through implementation, review, verification, status updates, commit, and push. | `skills/plan-executor/SKILL.md`, `skills/plan-executor/agents/openai.yaml` |
 | `commit-push` | Turn "commit and push" into a repeatable Git workflow: inspect changes, derive commit intent, optionally bump versions, commit, push, and optionally create missing GitHub remotes. | `skills/commit-push/SKILL.md`, `skills/commit-push/scripts/commit_push.cjs`, `skills/commit-push/scripts/github_remote.cjs` |
 | `piflow-status-inspector` | Read `output-stages/stages.json` from the current project and summarize PiFlow runtime status, stage progress, runtime, failures, recovery counts, and current stage task completion. | `skills/piflow-status-inspector/SKILL.md`, `skills/piflow-status-inspector/scripts/project_status.cjs`, `skills/piflow-status-inspector/agents/openai.yaml` |
-| `add-skill-lib` | Add a new skill library into the PiFlow pipeline repository by registering source templates, exposing skills, validating `path + locator`, and updating runtime self-tests. | `skills/add-skill-lib/SKILL.md`, `skills/add-skill-lib/agents/openai.yaml` |
+| `add-skill-lib` | Add a Git-hosted skill library into the PiFlow pipeline repository by cloning it into `skill-libraries/<library-name>`, extracting template fields, exposing skills, validating `path + locator`, and updating runtime self-tests. | `skills/add-skill-lib/SKILL.md`, `skills/add-skill-lib/agents/openai.yaml` |
 
 ## Supported Agents
 
