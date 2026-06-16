@@ -1,6 +1,6 @@
 ---
 name: plan-doc-maker
-description: Generate Chinese proposal, solution, architecture, implementation, migration, refactor, or upgrade plan documents under project-local docs/plans/, and maintain a reviewed docs/plans/plan_index.md execution index. Use when the user asks to 写方案, 生成方案, 形成方案, 给出方案, create, draft, review, refine, merge, consolidate, or finalize a 方案文档, 技术方案, 实施方案, 改造方案, 升级方案, 迁移方案, 架构方案, plan_index.md, or project plan, especially when the plan must be reviewed against the current repository before being marked reviewed and committed or pushed.
+description: Generate Chinese proposal, solution, architecture, implementation, migration, refactor, or upgrade plan documents under project-local docs/plans/, and maintain a reviewed docs/plans/plan_index.md execution index. Use when the user asks to 写方案, 生成方案, 形成方案, 给出方案, 生成 pif 方案, 写入 pif 方案, 更新 pif 方案, create, draft, review, refine, merge, consolidate, or finalize a 方案文档, 技术方案, 实施方案, 改造方案, 升级方案, 迁移方案, 架构方案, plan_index.md, or project plan, especially when the plan must be reviewed against the current repository before being marked reviewed and committed or pushed.
 ---
 
 # Plan Doc Maker
