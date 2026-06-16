@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.6 - 2026-06-16
+
+- 对齐 add-skill-lib 的技能库目录结构
+- Changed: 8 file(s).
+- Areas: skills(6), .(2).
+- Hints: documentation.
+
 ## 0.1.5 - 2026-06-16
 
 - 增强 add-skill-lib 的 Git 地址接入与触发词

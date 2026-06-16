@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.1.6 - 2026-06-16
+
+- 对齐 add-skill-lib 的技能库目录结构
+- Changed: 8 file(s).
+- Areas: skills(6), .(2).
+- Hints: documentation.
+
+## 0.1.5 - 2026-06-16
+
+- Align the workflow with the new PiFlow skill library directory layout.
+- Clone source repositories under `skill-libraries/repos/<library-name>`.
+- Write generated PiFlow `skill.yaml` metadata under `skill-libraries/libs/<library-name>/<skill-name>/`.
+
+## 0.1.4 - 2026-06-16
+
+- Change library registration target from `templates/skill-libraries-template.yaml` to `skill-libraries/libraries.yaml`.
+- Align extracted library fields with the current `libraries.yaml` shape.
+
 ## 0.1.3 - 2026-06-16
 
 - 增强 add-skill-lib 的 Git 地址接入与触发词

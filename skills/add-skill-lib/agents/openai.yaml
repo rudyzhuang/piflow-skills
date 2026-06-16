@@ -1,7 +1,7 @@
 interface:
   display_name: "Add Skill Library"
-  short_description: "从 Git 地址克隆 skill library，并纳入 PiFlow 流水线模板与运行时解析"
-  default_prompt: "Use $add-skill-lib with this Git URL to clone a skill library into PiFlow and wire it into the pipeline templates."
+  short_description: "从 Git 地址克隆到 repos，生成 libs 元数据并纳入 PiFlow"
+  default_prompt: "Use $add-skill-lib with this Git URL to clone a skill library into skill-libraries/repos and write metadata under skill-libraries/libs."
 
 policy:
   allow_implicit_invocation: true
