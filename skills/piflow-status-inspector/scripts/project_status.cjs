@@ -3,11 +3,35 @@
 
 const fs = require("node:fs");
 const path = require("node:path");
+const { execFileSync } = require("node:child_process");
 
 const COMPLETE = new Set(["complete", "completed", "success", "succeeded", "done", "passed", "ok", "finished"]);
 const FAILED = new Set(["fail", "failed", "failure", "error", "errored", "crashed", "rejected"]);
 const RUNNING = new Set(["running", "active", "in_progress", "in-progress", "processing", "executing", "started", "working"]);
 const PENDING = new Set(["pending", "queued", "waiting", "todo", "not_started", "not-started", "created", "ready"]);
+const PIPELINE_STEPS = [
+  "setup",
+  "prd",
+  "prd-review",
+  "design",
+  "design-review",
+  "codegen",
+  "ui-scenarios",
+  "code-review",
+  "merge",
+  "build",
+  "deploy",
+  "test",
+  "report",
+];
+const STAGE_KEY_ALIASES = {
+  "prd-review": "prd_review",
+  "design-review": "design_review",
+  "ui-scenarios": "ui_scenarios",
+  "create-ui-scenarios": "ui_scenarios",
+  create_ui_scenarios: "ui_scenarios",
+  "code-review": "code_review",
+};
 
 function parseArgs(argv) {
   const opts = { cwd: process.cwd(), json: false };
@@ -124,6 +148,7 @@ function normalizeStatus(raw) {
   if (FAILED.has(value)) return "failed";
   if (RUNNING.has(value)) return "running";
   if (PENDING.has(value)) return "pending";
+  if (value === "blocked" || value === "stopped" || value === "skipped") return value;
   if (value.includes("success") || value.includes("complete")) return "completed";
   if (value.includes("fail") || value.includes("error")) return "failed";
   if (value.includes("running") || value.includes("progress") || value.includes("execut")) return "running";
@@ -152,11 +177,11 @@ function numberValue(value) {
   return undefined;
 }
 
-function durationFromFields(obj) {
+function explicitDurationFromFields(obj) {
   if (!isPlainObject(obj)) return undefined;
-  const msKeys = ["durationMs", "elapsedMs", "runtimeMs", "runTimeMs", "totalRuntimeMs", "executionTimeMs", "timeMs"];
-  const secKeys = ["durationSeconds", "elapsedSeconds", "runtimeSeconds", "runTimeSeconds", "seconds"];
-  const minKeys = ["durationMinutes", "elapsedMinutes", "runtimeMinutes", "minutes"];
+  const msKeys = ["durationMs", "duration_ms", "elapsedMs", "elapsed_ms", "runtimeMs", "runtime_ms", "runTimeMs", "run_time_ms", "totalRuntimeMs", "total_runtime_ms", "executionTimeMs", "execution_time_ms", "timeMs", "time_ms"];
+  const secKeys = ["durationSeconds", "duration_seconds", "elapsedSeconds", "elapsed_seconds", "runtimeSeconds", "runtime_seconds", "runTimeSeconds", "run_time_seconds", "seconds"];
+  const minKeys = ["durationMinutes", "duration_minutes", "elapsedMinutes", "elapsed_minutes", "runtimeMinutes", "runtime_minutes", "minutes"];
   for (const key of msKeys) {
     const value = numberValue(obj[key]);
     if (value !== undefined) return value;
@@ -169,14 +194,54 @@ function durationFromFields(obj) {
     const value = numberValue(obj[key]);
     if (value !== undefined) return value * 60 * 1000;
   }
+  return undefined;
+}
+
+function durationFromFields(obj) {
+  if (!isPlainObject(obj)) return undefined;
+  const effective = effectiveDurationFromAttempts(obj);
+  if (effective !== undefined) return effective;
+  const explicit = explicitDurationFromFields(obj);
+  if (explicit !== undefined) return explicit;
   const start = parseTime(pick(obj, ["startedAt", "startAt", "startTime", "started_at", "start_time", "createdAt"]));
-  const end = parseTime(pick(obj, ["endedAt", "endAt", "endTime", "ended_at", "end_time", "finishedAt", "completedAt", "updatedAt"]));
+  const end = parseTime(pick(obj, ["endedAt", "endAt", "endTime", "ended_at", "end_time", "finishedAt", "finished_at", "completedAt", "completed_at", "updatedAt", "updated_at"]));
   if (start && end && end >= start) return end - start;
   if (start) {
     const status = normalizeStatus(pick(obj, ["status", "state", "phase", "result"]));
     if (status === "running" || obj.running === true || obj.active === true) return Date.now() - start;
   }
   return undefined;
+}
+
+function effectiveDurationFromAttempts(obj) {
+  if (!isPlainObject(obj)) return undefined;
+  const histories = [
+    obj.attempt_history,
+    obj.attemptHistory,
+    obj.attempts_history,
+    obj.attemptsHistory,
+    obj.runs,
+    obj.executions,
+  ];
+  const attempts = histories.find(Array.isArray);
+  if (!attempts || !attempts.length) return undefined;
+  let total = 0;
+  let seen = false;
+  for (const attempt of attempts) {
+    if (!isPlainObject(attempt)) continue;
+    const status = normalizeStatus(pick(attempt, ["status", "state", "result"]));
+    if (status === "failed" || status === "stopped" || status === "blocked") continue;
+    const ms = explicitDurationFromFields(attempt) ?? durationFromFields({
+      started_at: pick(attempt, ["startedAt", "started_at", "startTime", "start_time"]),
+      completed_at: pick(attempt, ["completedAt", "completed_at", "endedAt", "ended_at", "finishedAt", "finished_at"]),
+      status,
+    });
+    if (ms !== undefined) {
+      total += ms;
+      seen = true;
+    }
+  }
+  return seen ? total : undefined;
 }
 
 function formatDuration(ms) {
@@ -202,6 +267,71 @@ function stringifyValue(value) {
   if (typeof value === "string") return value;
   if (typeof value === "number" || typeof value === "boolean") return String(value);
   return JSON.stringify(value);
+}
+
+function compactObject(obj) {
+  const result = {};
+  for (const [key, value] of Object.entries(obj)) {
+    if (value !== undefined && value !== null && value !== "") result[key] = value;
+  }
+  return result;
+}
+
+function extractAgentRuntime(sources, fallback = {}) {
+  const expanded = [];
+  for (const source of sources) {
+    if (!isPlainObject(source)) continue;
+    expanded.push(
+      source,
+      source.agent,
+      source.default_agent,
+      source.defaultAgent,
+      source.runtime_agent,
+      source.runtimeAgent,
+      source.agent_runtime,
+      source.agentRuntime,
+      source.agent_config,
+      source.agentConfig,
+      source.llm,
+      source.model
+    );
+  }
+  const provider = stringifyValue(firstDefined(
+    ...expanded.map((source) => pick(source, [
+      "agent_provider",
+      "agentProvider",
+      "default_agent_provider",
+      "defaultAgentProvider",
+      "provider",
+      "providerName",
+      "provider_name",
+      "runtimeProvider",
+      "runtime_provider",
+    ])),
+    fallback.provider
+  ));
+  const model = stringifyValue(firstDefined(
+    ...expanded.map((source) => pick(source, [
+      "agent_model",
+      "agentModel",
+      "default_agent_model",
+      "defaultAgentModel",
+      "model",
+      "modelName",
+      "model_name",
+      "llm_model",
+      "llmModel",
+      "runtimeModel",
+      "runtime_model",
+    ])),
+    fallback.model
+  ));
+  return compactObject({ provider, model });
+}
+
+function formatAgentRuntime(agent) {
+  if (!agent || (!agent.provider && !agent.model)) return "未识别";
+  return [agent.provider ? `agent_provider ${agent.provider}` : undefined, agent.model ? `模型 ${agent.model}` : undefined].filter(Boolean).join("，");
 }
 
 function arrayFromMaybeMap(value) {
@@ -253,9 +383,61 @@ function stageName(raw, index) {
 
 function taskName(raw, index) {
   return String(firstDefined(
-    pick(raw, ["name", "title", "taskName", "label", "id", "key", "type"]),
+    pick(raw, ["feature_id", "featureId", "scenario_id", "scenarioId", "client_target", "clientTarget", "service", "name", "title", "taskName", "label", "id", "key", "type"]),
     `任务 ${index + 1}`
   ));
+}
+
+function stageKey(name) {
+  const raw = String(name || "").trim();
+  const lowerName = raw.toLowerCase();
+  return STAGE_KEY_ALIASES[lowerName] || lowerName.replace(/-/g, "_");
+}
+
+function displayStageName(name) {
+  const key = stageKey(name);
+  const found = PIPELINE_STEPS.find((step) => stageKey(step) === key);
+  return found || String(name || key);
+}
+
+function taskStatusBucket(status) {
+  if (status === "completed") return "completed";
+  if (status === "running") return "running";
+  if (status === "failed") return "failed";
+  return "pending";
+}
+
+function gitValue(cwd, args) {
+  try {
+    return execFileSync("git", ["-C", cwd, ...args], {
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"],
+    }).trim() || undefined;
+  } catch (_) {
+    return undefined;
+  }
+}
+
+function readJsonIfExists(filePath) {
+  try {
+    if (!fs.existsSync(filePath)) return undefined;
+    return JSON.parse(fs.readFileSync(filePath, "utf8"));
+  } catch (_) {
+    return undefined;
+  }
+}
+
+function loadProjectConfig(projectDir) {
+  const candidates = [
+    path.join(projectDir, "docs", "config.release.json"),
+    path.join(projectDir, "docs", "config.dev.json"),
+    path.join(projectDir, "docs", "config.json"),
+  ];
+  for (const file of candidates) {
+    const config = readJsonIfExists(file);
+    if (config) return config;
+  }
+  return {};
 }
 
 function getTaskCollections(raw) {
@@ -266,6 +448,88 @@ function getTaskCollections(raw) {
     for (const item of arrayFromMaybeMap(raw[key])) tasks.push(item);
   }
   return tasks;
+}
+
+function namedTask(name, raw, status) {
+  if (isPlainObject(raw)) return { key: name, name, ...raw, status: raw.status || raw.state || status };
+  return { key: name, name, value: raw, status };
+}
+
+function tasksFromIds(ids, status) {
+  return Array.isArray(ids) ? ids.map((id) => ({ feature_id: String(id), status })) : [];
+}
+
+function buildStageTasks(raw, name) {
+  if (!isPlainObject(raw)) return [];
+  const key = stageKey(name);
+  const outputs = isPlainObject(raw.outputs) ? raw.outputs : {};
+  const explicit = getTaskCollections(raw);
+  const tasks = [];
+
+  if (isPlainObject(raw.features)) {
+    for (const [featureId, item] of Object.entries(raw.features)) tasks.push(namedTask(featureId, item, item?.status));
+  }
+
+  if (key === "prd") {
+    tasks.push(...arrayFromMaybeMap(outputs.features).map((item) => isPlainObject(item) ? item : { feature_id: String(item) }));
+  } else if (key === "prd_review") {
+    if (isPlainObject(outputs.client_results)) {
+      for (const [target, item] of Object.entries(outputs.client_results)) {
+        const status = normalizeStatus(item?.status || item?.decision || outputs.decision);
+        tasks.push(namedTask(target, item, status));
+      }
+    }
+    tasks.push(...arrayFromMaybeMap(outputs.feature_assessments));
+  } else if (key === "design") {
+    tasks.push(...arrayFromMaybeMap(outputs.design_specs));
+  } else if (key === "design_review") {
+    tasks.push(...arrayFromMaybeMap(outputs.reviewed_features || outputs.feature_results));
+  } else if (key === "codegen") {
+    tasks.push(...tasksFromIds(outputs.completed_features, "completed"));
+    tasks.push(...tasksFromIds(outputs.running_features, "running"));
+    tasks.push(...tasksFromIds(outputs.failed_features, "failed"));
+    tasks.push(...tasksFromIds(outputs.fail_fast_stopped_features, "stopped"));
+    tasks.push(...tasksFromIds(outputs.pending_features, "pending"));
+    tasks.push(...arrayFromMaybeMap(outputs.feature_artifacts).map((item) => ({ ...item, status: "completed" })));
+  } else if (key === "ui_scenarios") {
+    tasks.push(...arrayFromMaybeMap(outputs.scenarios || outputs.scenario_results || outputs.feature_scenarios));
+  } else if (key === "code_review") {
+    tasks.push(...tasksFromIds(outputs.completed_features || outputs.passed_features, "completed"));
+    tasks.push(...tasksFromIds(outputs.failed_features, "failed"));
+    tasks.push(...tasksFromIds(outputs.interrupted_features, "stopped"));
+    tasks.push(...arrayFromMaybeMap(outputs.feature_reviews || outputs.review_results));
+  } else if (key === "merge") {
+    tasks.push(...arrayFromMaybeMap(outputs.merged_features || outputs.integrated_features).map((item) => isPlainObject(item) ? item : { feature_id: String(item), status: "completed" }));
+    tasks.push(...arrayFromMaybeMap(outputs.failed_features).map((item) => isPlainObject(item) ? item : { feature_id: String(item), status: "failed" }));
+  } else if (key === "build") {
+    tasks.push(...arrayFromMaybeMap(outputs.services || outputs.targets || outputs.builds || outputs.artifacts));
+  } else if (key === "deploy") {
+    tasks.push(...arrayFromMaybeMap(outputs.services || outputs.deployments || outputs.deployment_urls || outputs.targets));
+  } else if (key === "test") {
+    tasks.push(...arrayFromMaybeMap(outputs.scenario_results || outputs.scenarios || outputs.failed_scenario_results));
+    if (outputs.api_test) tasks.push({ name: "api_test", ...outputs.api_test });
+  } else if (key === "report") {
+    tasks.push(...arrayFromMaybeMap(outputs.reports || outputs.artifacts || outputs.files));
+  } else if (key === "setup") {
+    tasks.push(...arrayFromMaybeMap(outputs.client_targets).map((target) => ({ name: `client_target:${target}`, status: raw.status })));
+    if (outputs.config_dev) tasks.push({ name: "config_dev", status: raw.status, output: outputs.config_dev });
+    if (outputs.config_release) tasks.push({ name: "config_release", status: raw.status, output: outputs.config_release });
+  }
+
+  tasks.push(...explicit);
+  if (!tasks.length && isPlainObject(raw.validation)) tasks.push({ name: "validation", status: raw.status, ...raw.validation });
+  if (!tasks.length && isPlainObject(raw.git_sync)) tasks.push({ name: "git_sync", status: raw.status, ...raw.git_sync });
+
+  const deduped = [];
+  const seen = new Set();
+  for (const task of tasks) {
+    const normalized = normalizeTask(task, deduped.length);
+    const dedupeKey = normalized.name;
+    if (seen.has(dedupeKey)) continue;
+    seen.add(dedupeKey);
+    deduped.push(normalized);
+  }
+  return deduped;
 }
 
 function normalizeTask(raw, index) {
@@ -289,13 +553,15 @@ function normalizeTask(raw, index) {
     name: taskName(raw, index),
     status,
     durationMs: durationFromFields(raw),
-    attempts: numberValue(pick(raw, ["attempts", "attempt", "retryCount", "retries", "runCount"])),
-    failures: numberValue(pick(raw, ["failures", "failureCount", "failedCount", "errorCount"])),
-    recoveryCount: numberValue(pick(raw, ["recoveryCount", "recoveries", "recoveryAttempts", "recoveredCount"])),
+    attempts: numberValue(pick(raw, ["attempts", "attempt", "attempts_used", "attemptsUsed", "retryCount", "retries", "runCount"])),
+    failures: numberValue(pick(raw, ["failures", "failureCount", "failedCount", "errorCount", "hang_count", "hangCount"])),
+    recoveryCount: numberValue(pick(raw, ["recoveryCount", "recoveries", "recoveryAttempts", "recoveredCount", "repairCount", "fix_attempts", "fixAttempts"])),
     group: stringifyValue(pick(raw, ["group", "groupId", "group_id"])),
     branch: stringifyValue(pick(raw, ["branch", "gitBranch", "featureBranch"])),
     worktree: stringifyValue(pick(raw, ["worktree", "worktreePath", "worktree_path"])),
-    agent: stringifyValue(pick(raw, ["agent", "agentId", "agentName", "worker"])),
+    agent: stringifyValue(pick(raw, ["agent", "agentId", "agent_id", "agentName", "worker"])),
+    agentRuntime: extractAgentRuntime([raw]),
+    error: stringifyValue(pick(raw, ["error", "reason", "message", "failure_summary"])),
     nested,
   };
 }
@@ -334,7 +600,9 @@ function normalizeStage(raw, index) {
       output: undefined,
     };
   }
-  const tasks = getTaskCollections(raw).map(normalizeTask);
+  const name = stageName(raw, index);
+  const tasks = buildStageTasks(raw, name);
+  const taskAgentSources = tasks.flatMap((task) => [task.agentRuntime, task]);
   let status = normalizeStatus(pick(raw, ["status", "state", "phase", "result"]));
   if (status === "unknown") {
     if (raw.completed === true || raw.done === true || raw.success === true) status = "completed";
@@ -343,15 +611,19 @@ function normalizeStage(raw, index) {
     else if (raw.completed === false || raw.done === false) status = "pending";
   }
   return {
-    name: stageName(raw, index),
+    name,
+    key: stageKey(name),
+    displayName: displayStageName(name),
     status,
-    durationMs: durationFromFields(raw),
+    durationMs: explicitDurationFromFields(raw) ?? explicitDurationFromFields(raw.outputs) ?? durationFromFields(raw),
     startedAt: formatDate(pick(raw, ["startedAt", "startAt", "startTime", "started_at", "start_time"])),
     endedAt: formatDate(pick(raw, ["endedAt", "endAt", "endTime", "ended_at", "end_time", "finishedAt", "completedAt"])),
-    attempts: numberValue(pick(raw, ["attempts", "attempt", "retryCount", "retries", "runCount"])),
+    attempts: numberValue(pick(raw, ["attempts", "attempt", "attempts_used", "attemptsUsed", "retryCount", "retries", "runCount"])),
     failures: countFailures(raw, tasks),
     recoveryCount: countRecovery(raw, tasks),
     tasks,
+    rawOutputs: isPlainObject(raw.outputs) ? raw.outputs : undefined,
+    agentRuntime: extractAgentRuntime([raw, raw.outputs, ...taskAgentSources]),
     output: pick(raw, ["output", "outputPath", "artifact", "artifactPath", "resultPath"]),
     pid: numberValue(pick(raw, ["pid", "processId", "process_id", "currentPid"])),
     log: stringifyValue(pick(raw, ["log", "logPath", "stageLog", "stageLogPath"])),
@@ -367,24 +639,46 @@ function flattenTasks(tasks) {
   return result;
 }
 
-function extractProjectInfo(data) {
+function extractProjectInfo(data, projectDir, config = {}) {
   const sources = [data.project, data.projectInfo, data.pipeline?.project, data.metadata, data.meta, data.summary, data.req, data.request, data];
+  const defaultAgent = extractAgentRuntime([
+    data.agent,
+    data.default_agent,
+    data.defaultAgent,
+    data.pipeline?.agent,
+    data.pipeline?.default_agent,
+    data.pipeline?.defaultAgent,
+    data.pipeline?.defaults,
+    data.metadata?.agent,
+    data.meta?.agent,
+    data.req?.agent,
+    data.request?.agent,
+    config.agent,
+    config.default_agent,
+    config.defaultAgent,
+    config,
+    data,
+  ], { provider: "codex", model: "gpt-5.5" });
   const gitSources = [data.git, data.remote, data.repository, data.repo, data.project?.git, data.projectInfo?.git, data.pipeline?.project?.git, data.metadata?.git, data.meta?.git, data];
   const name = firstDefined(...sources.map((source) => pick(source, ["projectName", "name", "title", "appName"])));
   const description = firstDefined(...sources.map((source) => pick(source, ["description", "brief", "summary", "intro", "prompt", "goal"])));
   const createdAt = firstDefined(...sources.map((source) => pick(source, ["createdAt", "startedAt", "startTime"])));
   const updatedAt = firstDefined(...sources.map((source) => pick(source, ["updatedAt", "lastUpdatedAt", "modifiedAt", "endedAt"])));
+  const gitRoot = gitValue(projectDir, ["rev-parse", "--show-toplevel"]);
+  const remoteName = stringifyValue(firstDefined(...gitSources.map((source) => pick(source, ["remote", "remoteName", "remote_name", "gitRemote"])))) || "origin";
   return {
     id: stringifyValue(firstDefined(...sources.map((source) => pick(source, ["projectId", "project_id", "id"])), findFirstDeep(data, ["projectId", "project_id"]))),
     name: name ? String(name) : undefined,
     description: description ? String(description) : undefined,
-    rootDir: stringifyValue(firstDefined(...sources.map((source) => pick(source, ["rootDir", "root_dir", "rootPath", "root_path", "projectRoot", "project_root", "root", "cwd", "workspace"])), findFirstDeep(data, ["rootDir", "rootPath", "root_path", "projectRoot", "project_root"]))),
-    gitRemote: stringifyValue(firstDefined(...gitSources.map((source) => pick(source, ["remote", "remoteName", "remote_name", "gitRemote"])))),
-    remoteUrl: stringifyValue(firstDefined(...gitSources.map((source) => pick(source, ["remoteUrl", "remote_url", "url", "gitUrl"])))),
-    defaultBranch: stringifyValue(firstDefined(...gitSources.map((source) => pick(source, ["defaultBranch", "default_branch", "branch", "mainBranch"])))),
+    rootDir: stringifyValue(firstDefined(...sources.map((source) => pick(source, ["rootDir", "root_dir", "rootPath", "root_path", "projectRoot", "project_root", "root", "cwd", "workspace"])), findFirstDeep(data, ["rootDir", "rootPath", "root_path", "projectRoot", "project_root"]), projectDir)),
+    localRepo: gitRoot || (fs.existsSync(path.join(projectDir, ".git")) ? projectDir : undefined),
+    gitRemote: remoteName,
+    remoteUrl: stringifyValue(firstDefined(...gitSources.map((source) => pick(source, ["remoteUrl", "remote_url", "url", "gitUrl"])), gitValue(projectDir, ["remote", "get-url", remoteName]))),
+    defaultBranch: stringifyValue(firstDefined(...gitSources.map((source) => pick(source, ["defaultBranch", "default_branch", "branch", "mainBranch"])), gitValue(projectDir, ["branch", "--show-current"]))),
     remoteConfiguredAt: formatDate(firstDefined(...gitSources.map((source) => pick(source, ["remoteConfiguredAt", "remote_configured_at", "configuredAt", "configured_at"])))),
     createdAt: formatDate(createdAt),
     updatedAt: formatDate(updatedAt),
+    defaultAgent,
   };
 }
 
@@ -424,6 +718,14 @@ function extractPipelineInfo(data, stages, filePath) {
     fs.statSync(filePath).mtime
   ));
   const logSources = [data.logs, data.log, data.pipeline?.logs, data.pipeline?.log, data.pipeline?.current?.log_paths, data.pipeline?.current?.logs, data.metadata?.logs, data.meta?.logs, data];
+  const agentRuntime = extractAgentRuntime([
+    ...currentSources,
+    runningStage?.agentRuntime,
+    runningStage,
+    data.pipeline?.agent,
+    data.pipeline?.runtime_agent,
+    data.pipeline,
+  ]);
   return {
     currentStage,
     currentStatus,
@@ -436,6 +738,7 @@ function extractPipelineInfo(data, stages, filePath) {
     stagesUpdatedAt,
     globalLog: stringifyValue(firstDefined(...logSources.map((source) => pick(source, ["global", "globalLog", "globalLogPath", "pipelineLog", "pipelineLogPath", "logPath"])))),
     stageLog: stringifyValue(firstDefined(...logSources.map((source) => pick(source, ["stage", "stageLog", "stageLogPath", "currentStageLog", "currentStageLogPath"])), runningStage?.log)),
+    agentRuntime,
   };
 }
 
@@ -495,6 +798,8 @@ function normalizeRecoveryRecord(raw, index) {
     attempt: numberValue(pick(raw, ["attempt", "attempts"])),
     decision: stringifyValue(pick(raw, ["decision", "action"])),
     repairTarget: stringifyValue(pick(raw, ["repairTarget", "repair_target"])),
+    featureId: stringifyValue(pick(raw, ["featureId", "feature_id"])),
+    failedFeatures: Array.isArray(raw.failed_features) ? raw.failed_features.map(String) : undefined,
     category: stringifyValue(pick(raw, ["category", "failureLayer", "failure_layer"])),
     failureSignatureId: stringifyValue(pick(raw, ["failureSignatureId", "failure_signature_id", "signature"])),
     runId: stringifyValue(pick(raw, ["runId", "run_id"])),
@@ -502,8 +807,10 @@ function normalizeRecoveryRecord(raw, index) {
     rerunStage: stringifyValue(pick(rerunScope, ["stage", "action"])),
     rerunFeatures: Array.isArray(rerunScope?.features) ? rerunScope.features.map(String) : undefined,
     rootCauseSummary: stringifyValue(pick(rootCause, ["failure_symptom", "failureSymptom", "direct_cause", "directCause", "summary"])),
+    filesChanged: Array.isArray(raw.files_changed) ? raw.files_changed.map(stringifyValue).filter(Boolean) : undefined,
     filesChangedCount: Array.isArray(raw.files_changed) ? raw.files_changed.length : undefined,
     pushed: typeof raw.pushed === "boolean" ? raw.pushed : undefined,
+    durationMs: durationFromFields(raw),
     at: formatDate(pick(raw, ["at", "createdAt", "created_at", "time"])),
     title: stringifyValue(pick(raw, ["title", "name"])) || undefined,
   };
@@ -529,7 +836,18 @@ function extractRecoveryRecords(data) {
   const unique = [];
   const seen = new Set();
   for (const record of records.filter((item) => item.title || item.stage || item.message || item.count !== undefined)) {
-    const key = JSON.stringify([record.stage || "", record.count ?? "", record.message || "", record.title || ""]);
+    const key = JSON.stringify([
+      record.stage || "",
+      record.count ?? "",
+      record.attempt ?? "",
+      record.decision || "",
+      record.repairTarget || "",
+      record.featureId || "",
+      Array.isArray(record.failedFeatures) ? record.failedFeatures.join(",") : "",
+      record.message || "",
+      record.title || "",
+      record.at || "",
+    ]);
     if (seen.has(key)) continue;
     seen.add(key);
     unique.push(record);
@@ -558,8 +876,261 @@ function extractRecoveryInfo(data) {
   };
 }
 
-function summarize(data, filePath) {
+function recoveryRecordMatchesTask(record, stage, task) {
+  const stageMatch = !record.stage || stageKey(record.stage) === stage.key;
+  if (!stageMatch) return false;
+  if (record.featureId === task.name) return true;
+  if (Array.isArray(record.failedFeatures) && record.failedFeatures.includes(task.name)) return true;
+  const raw = [
+    record.repairTarget,
+    record.featureId,
+    record.failedFeatures?.join(","),
+    record.message,
+    record.title,
+    record.rerunFeatures?.join(","),
+    record.failureSignatureId,
+  ].filter(Boolean).join(" ");
+  if (Array.isArray(record.rerunFeatures) && record.rerunFeatures.includes(task.name)) return true;
+  return raw.includes(task.name);
+}
+
+function isRepairRecovery(record) {
+  const decision = lower(record.decision);
+  if (!decision) return false;
+  if (decision.includes("retry") || decision === "invalid" || decision === "none") return false;
+  return decision.includes("fix") || decision.includes("repair") || decision.includes("patched");
+}
+
+function enrichTask(task, stage, recoveryRecords) {
+  const attempts = task.attempts ?? 0;
+  const matchingRecoveries = recoveryRecords.filter((record) => isRepairRecovery(record) && recoveryRecordMatchesTask(record, stage, task));
+  return {
+    ...task,
+    retryCount: Math.max(0, attempts - 1),
+    repairCount: (task.recoveryCount || 0) + matchingRecoveries.length,
+  };
+}
+
+function enrichStageTasks(stages, recoveryRecords) {
+  for (const stage of stages) {
+    stage.tasks = stage.tasks.map((task) => enrichTask(task, stage, recoveryRecords));
+  }
+}
+
+function stageByKey(stages) {
+  const map = new Map();
+  for (const stage of stages) map.set(stage.key || stageKey(stage.name), stage);
+  return map;
+}
+
+function stageStatusLabel(stage) {
+  if (!stage || stage.status === "pending" || stage.status === "unknown") return "未开始";
+  if (stage.status === "completed") return "已完成";
+  if (stage.status === "running") return "运行中";
+  if (stage.status === "failed") return "失败";
+  if (stage.status === "blocked") return "阻塞";
+  if (stage.status === "stopped") return "已停止";
+  if (stage.status === "skipped") return "已跳过";
+  return stage.status;
+}
+
+function currentRunSummary(pipeline, stages, defaultAgent) {
+  const currentKey = stageKey(pipeline.currentStage || stages.find((stage) => stage.status === "running")?.name || "");
+  const currentStage = stages.find((stage) => (stage.key || stageKey(stage.name)) === currentKey) || stages.find((stage) => stage.status === "running");
+  if (!currentStage) return undefined;
+  const tasks = flattenTasks(currentStage.tasks);
+  const completedTasks = tasks.filter((task) => taskStatusBucket(task.status) === "completed");
+  const runningTasks = tasks.filter((task) => taskStatusBucket(task.status) === "running");
+  const failedTasks = tasks.filter((task) => taskStatusBucket(task.status) === "failed");
+  const pendingTasks = tasks.filter((task) => taskStatusBucket(task.status) === "pending");
+  const total = tasks.length || 1;
+  const completed = tasks.length ? completedTasks.length : (currentStage.status === "completed" ? 1 : 0);
+  return {
+    stage: currentStage.displayName || currentStage.name,
+    status: pipeline.currentStatus || currentStage.status,
+    progress: { completed, total },
+    stageDurationMs: pipeline.elapsedMs ?? currentStage.durationMs,
+    agentRuntime: extractAgentRuntime([pipeline.agentRuntime, currentStage.agentRuntime, currentStage], defaultAgent),
+    completedTasks,
+    runningTasks,
+    failedTasks,
+    pendingTasks,
+  };
+}
+
+function futureStageSummary(currentStageName, stages) {
+  const currentIndex = PIPELINE_STEPS.findIndex((step) => stageKey(step) === stageKey(currentStageName));
+  const start = currentIndex >= 0 ? currentIndex + 1 : 0;
+  const map = stageByKey(stages);
+  return PIPELINE_STEPS.slice(start).map((step) => {
+    const stage = map.get(stageKey(step));
+    return {
+      name: step,
+      status: stage?.status || "pending",
+      statusLabel: stageStatusLabel(stage),
+      durationMs: stage?.durationMs,
+    };
+  });
+}
+
+function getStage(stages, key) {
+  return stages.find((stage) => (stage.key || stageKey(stage.name)) === stageKey(key));
+}
+
+function pushUnique(list, value) {
+  const str = stringifyValue(value);
+  if (!str || list.includes(str)) return;
+  list.push(str);
+}
+
+function collectFeatureIds(stages, preference = "all") {
+  const ids = [];
+  const prd = getStage(stages, "prd");
+  const design = getStage(stages, "design");
+  const designReview = getStage(stages, "design_review");
+  const codegen = getStage(stages, "codegen");
+
+  for (const task of prd?.tasks || []) pushUnique(ids, task.name);
+  for (const task of design?.tasks || []) pushUnique(ids, task.name);
+  for (const task of designReview?.tasks || []) {
+    if (preference !== "codegen_ready" || task.can_enter_codegen === true || task.status === "completed") pushUnique(ids, task.name);
+  }
+  for (const task of codegen?.tasks || []) {
+    if (preference === "codegen_completed" && task.status !== "completed") continue;
+    pushUnique(ids, task.name);
+  }
+  return ids;
+}
+
+function collectClientTargets(stages) {
+  const targets = [];
+  for (const stageName of ["setup", "prd"]) {
+    const stage = getStage(stages, stageName);
+    const outputs = stage && isPlainObject(stage.rawOutputs) ? stage.rawOutputs : {};
+    for (const target of arrayFromMaybeMap(outputs.client_targets)) {
+      if (isPlainObject(target)) pushUnique(targets, target.name || target.key || target.value);
+      else pushUnique(targets, target);
+    }
+  }
+  return targets;
+}
+
+function collectScenarioIds(stages) {
+  const ids = [];
+  const ui = getStage(stages, "ui_scenarios");
+  for (const task of ui?.tasks || []) pushUnique(ids, task.name);
+  return ids;
+}
+
+function configBuildTargets(config) {
+  const build = isPlainObject(config.build) ? config.build : {};
+  const targets = [];
+  for (const target of arrayFromMaybeMap(build.client_targets)) {
+    if (isPlainObject(target)) pushUnique(targets, target.name || target.key || target.value);
+    else pushUnique(targets, target);
+  }
+  if (!targets.length && isPlainObject(build.commands)) {
+    for (const key of Object.keys(build.commands)) {
+      if (key === "build" || key === "install") continue;
+      pushUnique(targets, key);
+    }
+  }
+  return targets;
+}
+
+function configDeployServices(config) {
+  const deploy = isPlainObject(config.deploy) ? config.deploy : {};
+  const services = [];
+  for (const service of arrayFromMaybeMap(deploy.services)) {
+    if (isPlainObject(service)) pushUnique(services, service.name || service.client_target || service.role || service.key);
+    else pushUnique(services, service);
+  }
+  return services;
+}
+
+function configSmokeChecks(config) {
+  const smoke = isPlainObject(config.smoke) ? config.smoke : {};
+  const checks = [];
+  for (const [index, check] of arrayFromMaybeMap(smoke.checks).entries()) {
+    if (isPlainObject(check)) pushUnique(checks, check.name || check.id || check.url || `smoke-${index + 1}`);
+    else pushUnique(checks, check);
+  }
+  return checks;
+}
+
+function fallbackTasksForStage(stage, stages, config) {
+  const key = stage.key || stageKey(stage.name);
+  let ids = [];
+  if (key === "prd_review") ids = collectClientTargets(stages);
+  else if (key === "design") ids = collectFeatureIds(stages);
+  else if (key === "design_review") ids = collectFeatureIds(stages);
+  else if (key === "codegen") ids = collectFeatureIds(stages, "codegen_ready");
+  else if (key === "ui_scenarios") ids = collectFeatureIds(stages, "codegen_ready");
+  else if (key === "code_review") ids = collectFeatureIds(stages, "codegen_completed");
+  else if (key === "merge") ids = collectFeatureIds(stages, "codegen_completed");
+  else if (key === "build") ids = configBuildTargets(config);
+  else if (key === "deploy") ids = configDeployServices(config);
+  else if (key === "test") ids = collectScenarioIds(stages).concat(configSmokeChecks(config));
+  else if (key === "report") ids = ["pipeline-report"];
+  if (!ids.length && (key === "build" || key === "deploy")) ids = collectClientTargets(stages);
+  return ids.map((id, index) => normalizeTask({ feature_id: id, status: "pending" }, index));
+}
+
+function applyDerivedTaskDefinitions(stages, config) {
+  for (const stage of stages) {
+    if (stage.tasks && stage.tasks.length) continue;
+    stage.tasks = fallbackTasksForStage(stage, stages, config);
+  }
+}
+
+function ensurePipelineStages(data, stages) {
+  const existing = stageByKey(stages);
+  const current = stringifyValue(firstDefined(
+    data.pipeline?.current_stage,
+    data.pipeline?.currentStage,
+    data.pipeline?.current?.stage,
+    data.current_stage,
+    data.currentStage
+  ));
+  const currentStatus = normalizeStatus(firstDefined(
+    data.pipeline?.status,
+    data.pipeline?.current_status,
+    data.pipeline?.current?.status,
+    data.pipeline?.current?.state,
+    data.status
+  ));
+  for (const step of PIPELINE_STEPS) {
+    const key = stageKey(step);
+    if (existing.has(key)) continue;
+    const status = current && stageKey(current) === key && currentStatus !== "unknown" ? currentStatus : "pending";
+    const stage = {
+      name: key,
+      key,
+      displayName: step,
+      status,
+      durationMs: undefined,
+      failures: 0,
+      recoveryCount: 0,
+      tasks: [],
+      output: undefined,
+    };
+    stages.push(stage);
+    existing.set(key, stage);
+  }
+  stages.sort((a, b) => {
+    const ai = PIPELINE_STEPS.findIndex((step) => stageKey(step) === (a.key || stageKey(a.name)));
+    const bi = PIPELINE_STEPS.findIndex((step) => stageKey(step) === (b.key || stageKey(b.name)));
+    return (ai === -1 ? Number.MAX_SAFE_INTEGER : ai) - (bi === -1 ? Number.MAX_SAFE_INTEGER : bi);
+  });
+}
+
+function summarize(data, filePath, projectDir) {
   const stages = findStageCollection(data).map(normalizeStage);
+  ensurePipelineStages(data, stages);
+  const config = loadProjectConfig(projectDir);
+  applyDerivedTaskDefinitions(stages, config);
+  const recoveryRecords = extractRecoveryRecords(data);
+  enrichStageTasks(stages, recoveryRecords);
   const completedStages = stages.filter((stage) => stage.status === "completed");
   const failedStages = stages.filter((stage) => stage.status === "failed");
   const runningStages = stages.filter((stage) => stage.status === "running");
@@ -570,11 +1141,11 @@ function summarize(data, filePath) {
   const runningRuntimeMs = sumNumbers(runningStages.map((stage) => stage.durationMs));
   return {
     filePath,
-    project: extractProjectInfo(data),
+    project: extractProjectInfo(data, projectDir, config),
     pipeline: extractPipelineInfo(data, stages, filePath),
     codegen: extractCodegenProgress(data, stages),
     recovery: extractRecoveryInfo(data),
-    recoveryRecords: extractRecoveryRecords(data),
+    recoveryRecords,
     counts: {
       totalStages: stages.length,
       completedStages: completedStages.length,
@@ -600,6 +1171,8 @@ function summarize(data, filePath) {
     runningStages,
     pendingStages,
     unknownStages,
+    currentRun: currentRunSummary(extractPipelineInfo(data, stages, filePath), stages, extractProjectInfo(data, projectDir, config).defaultAgent),
+    futureStages: futureStageSummary(extractPipelineInfo(data, stages, filePath).currentStage, stages),
   };
 }
 
@@ -615,6 +1188,47 @@ function renderTasks(title, tasks) {
   ].join("\n");
 }
 
+function renderTaskLine(task) {
+  const meta = [
+    `修复 ${task.repairCount || 0} 次`,
+    `重试 ${task.retryCount || 0} 次`,
+    `有效执行 ${formatDuration(task.durationMs)}`,
+  ];
+  const extra = [];
+  if (task.group) extra.push(`分组 ${task.group}`);
+  if (task.branch) extra.push(`分支 ${task.branch}`);
+  if (task.worktree) extra.push(`worktree ${task.worktree}`);
+  if (task.agent) extra.push(`agent ${task.agent}`);
+  if (task.agentRuntime?.provider || task.agentRuntime?.model) extra.push(formatAgentRuntime(task.agentRuntime));
+  if (task.error) extra.push(`原因 ${task.error}`);
+  return `- ${task.name}（${meta.join("，")}）${extra.length ? `；${extra.join("；")}` : ""}`;
+}
+
+function renderDetailedTasks(title, tasks) {
+  return [
+    `### ${title}`,
+    listLine(tasks, renderTaskLine),
+  ].join("\n");
+}
+
+function renderRecoveryRecord(record) {
+  const title = record.stage ? record.stage : (record.title || "恢复记录");
+  const target = [
+    record.repairTarget ? `目标 ${record.repairTarget}` : undefined,
+    record.featureId,
+    record.failedFeatures?.length ? record.failedFeatures.join(",") : undefined,
+  ].filter(Boolean).join(" / ");
+  const meta = [
+    record.at ? `时间 ${record.at}` : undefined,
+    `耗时 ${formatDuration(record.durationMs)}`,
+    record.decision ? `决策 ${record.decision}` : undefined,
+    target || undefined,
+    record.filesChanged?.length ? `文件 ${record.filesChanged.join(",")}` : undefined,
+    record.message || record.rootCauseSummary,
+  ].filter(Boolean);
+  return `- ${title}: ${meta.join("，") || "未识别详情"}`;
+}
+
 function renderReport(summary) {
   const projectName = summary.project.name || "未识别";
   const projectBrief = summary.project.description || "未识别";
@@ -623,17 +1237,49 @@ function renderReport(summary) {
   lines.push("");
   lines.push(`- 数据文件: ${summary.filePath}`);
   lines.push("");
-  lines.push("## 项目");
+  lines.push("## 项目介绍");
   if (summary.project.id) lines.push(`- 项目 ID: ${summary.project.id}`);
   lines.push(`- 项目名称: ${projectName}`);
   lines.push(`- 项目简介: ${projectBrief}`);
-  if (summary.project.rootDir) lines.push(`- 根目录: ${summary.project.rootDir}`);
+  if (summary.project.rootDir) lines.push(`- 项目路径: ${summary.project.rootDir}`);
+  if (summary.project.localRepo) lines.push(`- Git 本地仓库: ${summary.project.localRepo}`);
   if (summary.project.gitRemote) lines.push(`- Git remote: ${summary.project.gitRemote}`);
   if (summary.project.remoteUrl) lines.push(`- Remote URL: ${summary.project.remoteUrl}`);
   if (summary.project.defaultBranch) lines.push(`- 默认分支: ${summary.project.defaultBranch}`);
   if (summary.project.remoteConfiguredAt) lines.push(`- Remote 配置时间: ${summary.project.remoteConfiguredAt}`);
+  lines.push(`- default agent: ${formatAgentRuntime(summary.project.defaultAgent)}`);
   if (summary.project.createdAt) lines.push(`- 开始时间: ${summary.project.createdAt}`);
   if (summary.project.updatedAt) lines.push(`- 最近更新时间: ${summary.project.updatedAt}`);
+  lines.push("");
+  lines.push("## 当前运行");
+  if (summary.currentRun) {
+    lines.push(`- 流水线阶段: ${summary.currentRun.stage}`);
+    lines.push(`- 状态: ${summary.currentRun.status}`);
+    lines.push(`- stage agent: ${formatAgentRuntime(summary.currentRun.agentRuntime)}`);
+    lines.push(`- 进度: ${summary.currentRun.progress.completed} / ${summary.currentRun.progress.total}`);
+    lines.push(`- 当前 stage 有效运行时间: ${formatDuration(summary.currentRun.stageDurationMs)}`);
+    lines.push("");
+    lines.push(renderDetailedTasks("已完成", summary.currentRun.completedTasks));
+    lines.push("");
+    lines.push(renderDetailedTasks("运行中", summary.currentRun.runningTasks));
+    lines.push("");
+    lines.push(renderDetailedTasks("待处理", summary.currentRun.pendingTasks));
+    if (summary.currentRun.failedTasks.length) {
+      lines.push("");
+      lines.push(renderDetailedTasks("失败/阻塞", summary.currentRun.failedTasks));
+    }
+  } else {
+    lines.push("- 未识别当前运行 stage");
+  }
+  lines.push("");
+  lines.push("## Recovery");
+  lines.push(listLine(summary.recoveryRecords, renderRecoveryRecord));
+  lines.push("");
+  lines.push("## 已完成 Stages");
+  lines.push(listLine(summary.completedStages, (stage) => `- ${stage.name}: 执行的累计时间 ${formatDuration(stage.durationMs)}，实际使用的 agent_provider ${stage.agentRuntime?.provider || summary.project.defaultAgent?.provider || "未识别"}${stage.agentRuntime?.model || summary.project.defaultAgent?.model ? `，模型 ${stage.agentRuntime?.model || summary.project.defaultAgent?.model}` : ""}${stage.attempts ? `，尝试 ${stage.attempts} 次` : ""}`));
+  lines.push("");
+  lines.push("## 后续阶段");
+  lines.push(listLine(summary.futureStages, (stage) => `- ${stage.name}: ${stage.statusLabel} / 已执行累计时间 ${formatDuration(stage.durationMs)}`));
   lines.push("");
   lines.push("## 流水线");
   if (summary.pipeline.currentStage) lines.push(`- 当前阶段: ${summary.pipeline.currentStage}`);
@@ -704,7 +1350,7 @@ function renderReport(summary) {
   }
   lines.push("");
   lines.push("## 已完成 Stage");
-  lines.push(listLine(summary.completedStages, (stage) => `- ${stage.name}: ${formatDuration(stage.durationMs)}${stage.attempts ? `，尝试 ${stage.attempts} 次` : ""}`));
+  lines.push(listLine(summary.completedStages, (stage) => `- ${stage.name}: ${formatDuration(stage.durationMs)}，agent_provider ${stage.agentRuntime?.provider || summary.project.defaultAgent?.provider || "未识别"}${stage.agentRuntime?.model || summary.project.defaultAgent?.model ? `，模型 ${stage.agentRuntime?.model || summary.project.defaultAgent?.model}` : ""}${stage.attempts ? `，尝试 ${stage.attempts} 次` : ""}`));
   lines.push("");
   lines.push("## 失败 Stage");
   lines.push(listLine(summary.failedStages, (stage) => `- ${stage.name}: 已运行 ${formatDuration(stage.durationMs)}，失败 ${stage.failures || 0} 次，recovery ${stage.recoveryCount || 0} 次`));
@@ -750,17 +1396,7 @@ function renderReport(summary) {
   if (summary.recoveryRecords.length) {
     lines.push("");
     lines.push("## 恢复记录");
-    lines.push(listLine(summary.recoveryRecords, (record) => {
-      const countText = record.count !== undefined ? ` 修复 ${record.count} 次` : (record.attempt !== undefined ? ` attempt ${record.attempt}` : "");
-      const prefix = record.stage ? `${record.stage}${countText}` : (record.title || "恢复记录");
-      const meta = [record.repairTarget, record.category, record.decision].filter(Boolean).join("/");
-      const suffix = [
-        meta ? `(${meta})` : "",
-        record.message ? `: ${record.message}` : "",
-        record.rerunFeatures?.length ? `；续跑 ${record.rerunStage || record.stage}: ${record.rerunFeatures.join(",")}` : "",
-      ].join("");
-      return `- ${prefix}${suffix}`;
-    }));
+    lines.push(listLine(summary.recoveryRecords, renderRecoveryRecord));
   }
   return lines.join("\n");
 }
@@ -794,7 +1430,7 @@ function main() {
     process.exitCode = 1;
     return;
   }
-  const summary = summarize(data, filePath);
+  const summary = summarize(data, filePath, cwd);
   const result = { ok: true, ...summary };
   if (opts.json) console.log(JSON.stringify(result, null, 2));
   else console.log(renderReport(summary));
