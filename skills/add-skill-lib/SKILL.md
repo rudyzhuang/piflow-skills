@@ -1,22 +1,119 @@
 ---
 name: add-skill-lib
-description: Add a Git-hosted skill library into the PiFlow pipeline repository. Use when the user provides a Git URL and asks to 增加技能库, 增加piflow技能库, 增加pif技能库, add skill lib, add pif skill lib, add piflow skill lib, 纳入新的 skill library, clone/register/sync a skill library into skill-libraries/repos, extract library and skill metadata, write skill.yaml under skill-libraries/libs, register it in skill-libraries/libraries.yaml, expose skills in skills-template.yaml, wire skills into stages/workflows, validate path plus locator contracts, or update PiFlow skill library self-tests.
+description: Add or sync Git-hosted skill libraries into the PiFlow pipeline repository. Two modes: (1) single library mode — use when the user provides a Git URL and asks to 增加技能库, 增加piflow技能库, 增加pif技能库, add skill lib, add pif skill lib, add piflow skill lib, 纳入新的 skill library, clone/register/sync a skill library into skill-libraries/repos, extract library and skill metadata, write skill.yaml under skill-libraries/libs, register it in skill-libraries/libraries.yaml, expose skills in skills-template.yaml, wire skills into stages/workflows, validate path plus locator contracts, or update PiFlow skill library self-tests; (2) batch sync mode — use when the user asks to 安装技能库, 安装 piflow 技能库, 安装 pif 技能库, 检查技能库, 更新技能库, 更新 piflow 技能库, 更新 pif 技能库, or any request to batch-install/verify/update all registered skill libraries without providing a specific Git URL. In batch mode read skill-libraries/libraries.yaml, for each library entry check if the source repo is cloned under skill-libraries/repos/, clone any missing repos, update existing repos on update requests, verify metadata paths exist, and report the complete status of every registered library.
 ---
 
 # Add Skill Library
 
 ## Scope
 
-Use this skill only for adding or synchronizing a Git-hosted skill library inside the PiFlow pipeline repository named `piflow`.
+Use this skill only for adding or synchronizing Git-hosted skill libraries inside the PiFlow pipeline repository named `piflow`. This skill supports two modes:
+
+1. **Single library mode**: add or update a single skill library when a Git URL is provided.
+2. **Batch sync mode**: batch-install, verify, or update all registered skill libraries from `skill-libraries/libraries.yaml`.
 
 Before editing, verify the current project is the PiFlow pipeline repository:
 
 1. Check that the current directory is the `piflow` repository root or a path inside it.
 2. Confirm expected repository files exist, including `skill-libraries/libraries.yaml` and `templates/skills-template.yaml`.
 3. If the current project is not `piflow`, stop and tell the user to switch to the correct PiFlow pipeline repository directory. Do not apply these changes in a business project or in a standalone skills plugin repository.
-4. Require a Git repository URL from the user. If the user did not provide one, ask for it before changing files.
 
-## Workflow
+### Mode selection
+
+- If the user provides a specific Git URL OR asks to add/register/include a new library: use **Single library mode** (Workflow section below).
+- If the user asks to install/check/update skill libraries in general without providing a Git URL, using trigger words like 安装技能库, 安装 piflow 技能库, 安装 pif 技能库, 检查技能库, 更新技能库, 更新 piflow 技能库, 更新 pif 技能库: use **Batch sync mode** (Batch Sync Mode section below).
+
+## Batch Sync Mode
+
+This mode handles bulk installation, verification, and update of all skill libraries registered in `skill-libraries/libraries.yaml`.
+
+### Trigger words
+
+安装技能库, 安装 piflow 技能库, 安装 pif 技能库, 检查技能库, 更新技能库, 更新 piflow 技能库, 更新 pif 技能库
+
+### Operation type detection
+
+| Trigger word contains | Operation |
+|----------------------|-----------|
+| 安装 | **Install**: clone missing repos, skip existing ones (unless stale/broken), generate missing metadata |
+| 检查 | **Check**: verify all repos and metadata exist, report status only, do NOT clone or pull |
+| 更新 | **Update**: clone missing repos, `git pull` existing ones to latest, regenerate metadata for changed skills |
+
+### Workflow
+
+1. **Read the library registry.**
+   - Parse `skill-libraries/libraries.yaml` to extract every library entry.
+   - For each entry, capture: `name`, `type`, `path`, `metadata_path`, `install.verify`, `source.repo`, `source.ref`.
+
+2. **Check repo status for each library.**
+   For every library entry in order:
+   - Extract the repo directory name from `path`. For example, if `path: piflow/skill-libraries/repos/piflow-skills/skills`, the repo directory is `skill-libraries/repos/piflow-skills`.
+   - Check if the repo directory exists and contains a `.git` folder.
+   - If it exists, verify the remote URL matches `source.repo`:
+     ```bash
+     git -C skill-libraries/repos/<repo-dir> remote get-url origin
+     ```
+   - Report the current status: repo exists / missing / remote mismatch.
+
+3. **Execute the operation for each library.**
+
+   **For 安装 (install) mode:**
+   - If repo directory does NOT exist:
+     ```bash
+     git clone --depth 1 --branch <source.ref> <source.repo> skill-libraries/repos/<repo-dir>
+     ```
+   - If repo directory exists but remote does NOT match `source.repo`: warn and skip, ask user how to handle.
+   - If repo directory exists with correct remote: skip (already installed), report "already present".
+   - Check if `metadata_path` directory exists; if not, generate metadata by scanning the skills directory.
+
+   **For 检查 (check) mode:**
+   - Report for each library:
+     - Repo status: exists / missing
+     - If repo exists: current HEAD commit hash and branch
+     - Metadata status: `metadata_path` directory exists / missing
+     - Verify paths: check all `install.verify` paths exist
+   - Do NOT clone, pull, or write any files.
+   - Present a summary table of all libraries and their status.
+
+   **For 更新 (update) mode:**
+   - If repo directory does NOT exist:
+     ```bash
+     git clone --depth 1 --branch <source.ref> <source.repo> skill-libraries/repos/<repo-dir>
+     ```
+   - If repo directory exists with correct remote:
+     ```bash
+     git -C skill-libraries/repos/<repo-dir> fetch origin <source.ref>
+     git -C skill-libraries/repos/<repo-dir> checkout <source.ref>
+     git -C skill-libraries/repos/<repo-dir> pull origin <source.ref>
+     ```
+   - If repo directory exists but remote does NOT match: warn and skip, ask user how to handle.
+   - After updating repo, regenerate skill metadata if source skills have changed.
+
+4. **Verify metadata paths.**
+   - For each library, check that `metadata_path` directory exists.
+   - If missing (and not in check mode), create the directory and regenerate `skill.yaml` for each skill found in the repo.
+
+5. **Run `install.verify` checks.**
+   - For each library, execute every verify check defined in `install.verify`.
+   - Report pass/fail for each check.
+
+6. **Present final report.**
+   For batch sync mode, output a summary report covering:
+   - Total libraries processed
+   - Libraries cloned (newly installed)
+   - Libraries updated (pulled)
+   - Libraries skipped (already present)
+   - Libraries with errors (repo mismatch, clone failure, verify failure)
+   - For each library: name, repo URL, ref, local path, status, verify results
+
+### Batch sync validation
+
+After batch operations complete:
+- Verify all `install.verify` checks pass for every library.
+- If in update mode, confirm that updated repos still have valid skill layouts (SKILL.md files exist in expected locations).
+- Report any libraries that could not be processed and why.
+
+## Workflow (Single Library Mode)
 
 1. Derive and confirm the library identity.
    - Derive a default `<library-name>` from the Git URL repository slug:
@@ -127,7 +224,9 @@ Before editing, verify the current project is the PiFlow pipeline repository:
 
 After implementation, run the focused self-tests that cover the touched contracts. If the repository provides a broader pipeline self-test command, run it when the change touches shared runtime resolution.
 
-In the final response, report:
+### Single library mode report
+
+In the final response for single library mode, report:
 
 - library name and path
 - Git URL and resolved checkout action, such as cloned, pulled, or reused
@@ -137,3 +236,19 @@ In the final response, report:
 - stages or workflows wired
 - tests run and results
 - any intentional omissions, such as a skill created but not yet enabled for a stage
+
+### Batch sync mode report
+
+In the final response for batch sync mode, report:
+
+- operation type performed (安装 / 检查 / 更新)
+- total libraries processed, with counts for each outcome category
+- per-library status table:
+
+| Library | Repo URL | Ref | Local Path | Status | Detail |
+|---------|----------|-----|------------|--------|--------|
+| name | url | ref | path | installed/updated/skipped/error | commit hash or error message |
+
+- verify results: which `install.verify` checks passed or failed per library
+- any libraries that could not be processed and the reason
+- recommendations for any libraries needing manual attention

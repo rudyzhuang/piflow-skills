@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.7 - 2026-06-16
+
+- 为 add-skill-lib 增加批量同步模式触发词（安装/检查/更新技能库）
+- Changed: 1 file(s).
+- Areas: skills(1).
+- Hints: documentation.
+
 ## 0.1.6 - 2026-06-16
 
 - 对齐 add-skill-lib 的技能库目录结构
