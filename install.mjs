@@ -18,6 +18,7 @@ const SKIP_DIRS = new Set([".git", "__pycache__", ".pytest_cache", ".mypy_cache"
 const SKIP_FILES = new Set([".DS_Store"]);
 const VALID_ONLY = new Set(["cursor", "codex", "claude"]);
 const CODEX_PERSONAL_MARKETPLACE_NAME = "personal";
+const REQUIRED_SKILL_FILES = ["SKILL.md", "VERSION", "CHANGELOG.md", "README.md", "README.zh-CN.md", "install.mjs"];
 
 function windowsEnvPath(name, ...parts) {
   const value = process.env[name];
@@ -403,6 +404,10 @@ function validateSkillName(name) {
   if (!pathExists(skillFile)) {
     throw new Error(`Cannot find skill "${name}" at ${skillFile}`);
   }
+  const missingFiles = REQUIRED_SKILL_FILES.filter((fileName) => !pathExists(path.join(skillRoot, fileName)));
+  if (missingFiles.length > 0) {
+    throw new Error(`Skill "${name}" is missing required file(s): ${missingFiles.join(", ")}`);
+  }
   return { name, root: skillRoot };
 }
 
@@ -424,6 +429,8 @@ function usage() {
     "  --dry-run             print what would be installed without writing files",
     "  --copy                copy files instead of creating symlinks",
     "  -h, --help            show this help",
+    "",
+    `Required skill files: ${REQUIRED_SKILL_FILES.join(", ")}`,
   ].join("\n");
 }
 

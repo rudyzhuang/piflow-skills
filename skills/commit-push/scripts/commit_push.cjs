@@ -7,7 +7,7 @@
  * 功能：
  *   1. 采集 git 变更（status / diff / log）
  *   2. 按 --file 传入的路径分组到各 git 仓库，在每个仓库分别 commit/push
- *   3. 拦截疑似密钥文件；可选升版（pipeline-version.cjs 或 skill VERSION）
+ *   3. 拦截疑似密钥文件；自动维护子项目与根项目 VERSION / CHANGELOG.md
  *   4. 推送前检测远端是否存在；缺失时询问用户是否用 gh 建仓（默认 private）
  *   5. 执行完成后打印操作报告（各仓动作、提交哈希、升版、推送结果）
  *
@@ -62,6 +62,7 @@ const DEFAULT_VERSION_META = new Set([
   'package.json',
   'pipeline-manifest.json',
 ]);
+const INITIAL_VERSION = '0.1.0';
 
 const SUBJECT_MAX = 72;
 const BODY_MAX_LINES = 24;
@@ -688,7 +689,7 @@ function push(repoRoot, remote, branch, dryRun, env) {
   return { ok: r.ok, error: r.stderr };
 }
 
-// ── 可选升版（pipeline-version 优先；skill VERSION fallback）────────
+// ── 自动版本维护（子项目优先；根项目最后）────────────────────────
 
 function pickExport(mod, names) {
   for (const name of names) {
@@ -761,7 +762,6 @@ function resolveGenericSkillVersionContext(repoRoot, snapshot) {
     const full = path.resolve(dir);
     if (!full.startsWith(root)) return false;
     if (!fs.existsSync(path.join(full, 'SKILL.md'))) return false;
-    if (!fs.existsSync(path.join(full, 'VERSION'))) return false;
     counts.set(full, (counts.get(full) || 0) + 1);
     return true;
   }
@@ -802,6 +802,71 @@ function resolveGenericSkillVersionContext(repoRoot, snapshot) {
   };
 }
 
+function isChildOf(parent, child) {
+  const rel = path.relative(path.resolve(parent), path.resolve(child));
+  return rel !== '' && !rel.startsWith('..') && !path.isAbsolute(rel);
+}
+
+function hasVersionableMarker(dir, repoRoot) {
+  if (!dir || !String(dir).startsWith(path.resolve(repoRoot))) return false;
+  if (fs.existsSync(path.join(dir, 'SKILL.md'))) return true;
+  return path.resolve(dir) === path.resolve(repoRoot);
+}
+
+function discoverVersionableContexts(repoRoot, snapshot) {
+  const root = path.resolve(repoRoot);
+  const changedPaths = snapshot && Array.isArray(snapshot.nameStatus)
+    ? snapshot.nameStatus.map((x) => x.path).filter(Boolean)
+    : [];
+  const dirs = new Map();
+
+  function add(dir, reason) {
+    const full = path.resolve(dir);
+    if (!full.startsWith(root)) return false;
+    if (!hasVersionableMarker(full, root)) return false;
+    const rel = path.relative(root, full).replace(/\\/g, '/');
+    const skillPrefix = rel === '.' || rel === '' ? '' : rel;
+    const current = dirs.get(full) || { dir: full, skillPrefix, reasons: new Set() };
+    current.reasons.add(reason);
+    dirs.set(full, current);
+    return true;
+  }
+
+  for (const relPath of changedPaths) {
+    const norm = String(relPath || '').replace(/\\/g, '/');
+    let cur = path.dirname(path.join(root, norm));
+    if (DEFAULT_VERSION_META.has(path.basename(norm)) || path.basename(norm) === 'SKILL.md') {
+      cur = path.join(root, path.dirname(norm));
+    }
+    while (cur.startsWith(root)) {
+      if (add(cur, 'changed-path')) break;
+      if (cur === root) break;
+      cur = path.dirname(cur);
+    }
+  }
+
+  add(root, 'repo-root');
+
+  return [...dirs.values()]
+    .sort((a, b) => {
+      const aRoot = a.skillPrefix === '';
+      const bRoot = b.skillPrefix === '';
+      if (aRoot !== bRoot) return aRoot ? 1 : -1;
+      const depthA = a.skillPrefix ? a.skillPrefix.split('/').length : 0;
+      const depthB = b.skillPrefix ? b.skillPrefix.split('/').length : 0;
+      if (depthA !== depthB) return depthB - depthA;
+      return a.skillPrefix.localeCompare(b.skillPrefix);
+    })
+    .map((ctx) => ({
+      type: ctx.skillPrefix ? 'subproject' : 'project',
+      dir: ctx.dir,
+      versionFile: path.join(ctx.dir, 'VERSION'),
+      changelogFile: path.join(ctx.dir, 'CHANGELOG.md'),
+      skillPrefix: ctx.skillPrefix,
+      label: ctx.skillPrefix || path.basename(root),
+    }));
+}
+
 function createPathAdapter(mod) {
   const isSkillRepoPath =
     pickExport(mod, ['isSkillRepoPath', 'isPifSkillRepoPath', 'isStd4SkillRepoPath']) ||
@@ -828,6 +893,7 @@ function defaultIsVersionMetaOnlyPath(filePath, skillPrefix) {
 }
 
 function readVersionFile(versionFile) {
+  if (!fs.existsSync(versionFile)) return '0.0.0';
   const raw = fs.readFileSync(versionFile, 'utf8').trim();
   return raw || '0.0.0';
 }
@@ -869,12 +935,19 @@ function changelogEntry(to, subject, body) {
   return `${lines.join('\n')}\n`;
 }
 
-function recordGenericSkillVersionBump(ctx, repoRoot, commitMsg, level) {
-  const from = readVersionFile(ctx.versionFile);
-  const to = bumpSemver(from, level);
+function ensureParentDir(filePath) {
+  fs.mkdirSync(path.dirname(filePath), { recursive: true });
+}
+
+function recordGenericVersionBump(ctx, repoRoot, commitMsg, level) {
+  const existedVersion = fs.existsSync(ctx.versionFile);
+  const existedChangelog = fs.existsSync(ctx.changelogFile);
+  const from = existedVersion ? readVersionFile(ctx.versionFile) : null;
+  const to = existedVersion ? bumpSemver(from, level) : INITIAL_VERSION;
+  ensureParentDir(ctx.versionFile);
   fs.writeFileSync(ctx.versionFile, `${to}\n`);
 
-  const existing = fs.existsSync(ctx.changelogFile)
+  const existing = existedChangelog
     ? fs.readFileSync(ctx.changelogFile, 'utf8').trimStart()
     : '# Changelog\n\n';
   const normalized = existing.startsWith('# Changelog') ? existing : `# Changelog\n\n${existing}`;
@@ -884,7 +957,15 @@ function recordGenericSkillVersionBump(ctx, repoRoot, commitMsg, level) {
 
   const gitPaths = [ctx.versionFile, ctx.changelogFile]
     .map((p) => path.relative(repoRoot, p).replace(/\\/g, '/'));
-  return { from, to, gitPaths };
+  return {
+    from: from || '(none)',
+    to,
+    gitPaths,
+    skillPrefix: ctx.label,
+    created: !existedVersion || !existedChangelog,
+    createdVersion: !existedVersion,
+    createdChangelog: !existedChangelog,
+  };
 }
 
 /**
@@ -934,7 +1015,7 @@ function loadPipelineVersionCapability(repoRoot, snapshot = null) {
     readPipelineVersion: () => readVersionFile(genericCtx.versionFile),
     bumpVersion: bumpSemver,
     recordCommitPushVersionBump: ({ skillsRoot, subject, body, level }) =>
-      recordGenericSkillVersionBump(genericCtx, skillsRoot, { subject, body }, level),
+      recordGenericVersionBump(genericCtx, skillsRoot, { subject, body }, level),
   };
   return {
     type: 'skill',
@@ -995,6 +1076,63 @@ function bumpVersionForCommit(repoRoot, snapshot, commitMsg, dryRun) {
 /** @deprecated */
 const bumpStd4SkillForCommit = bumpVersionForCommit;
 
+function isContextVersionMetaOnly(filePath, ctx) {
+  return defaultIsVersionMetaOnlyPath(filePath, ctx.skillPrefix);
+}
+
+function contextHasSubstantiveChanges(snapshot, ctx) {
+  const paths = snapshot.nameStatus.map((x) => x.path);
+  const changes = paths.filter((p) => defaultIsSkillRepoPath(p, ctx.skillPrefix));
+  if (changes.length === 0) return false;
+  return changes.some((p) => !isContextVersionMetaOnly(p, ctx));
+}
+
+function planVersionMaintenance(repoRoot, snapshot) {
+  const contexts = discoverVersionableContexts(repoRoot, snapshot);
+  return contexts.filter((ctx) => {
+    if (!ctx.skillPrefix) return true;
+    return contextHasSubstantiveChanges(snapshot, ctx);
+  });
+}
+
+function previewVersionMaintenance(repoRoot, snapshot) {
+  return planVersionMaintenance(repoRoot, snapshot).map((ctx) => {
+    const exists = fs.existsSync(ctx.versionFile);
+    const from = exists ? readVersionFile(ctx.versionFile) : '(none)';
+    return {
+      from,
+      to: exists ? bumpSemver(from, 'patch') : INITIAL_VERSION,
+      dryRun: true,
+      skillPrefix: ctx.label,
+      type: ctx.type,
+      created: !exists || !fs.existsSync(ctx.changelogFile),
+      createdVersion: !exists,
+      createdChangelog: !fs.existsSync(ctx.changelogFile),
+      gitPaths: [ctx.versionFile, ctx.changelogFile].map((p) => path.relative(repoRoot, p).replace(/\\/g, '/')),
+    };
+  });
+}
+
+function maintainVersionsForCommit(repoRoot, snapshot, commitMsg, dryRun) {
+  const contexts = planVersionMaintenance(repoRoot, snapshot);
+  if (dryRun) return previewVersionMaintenance(repoRoot, snapshot);
+
+  const bumps = [];
+  for (const ctx of contexts) {
+    const bump = recordGenericVersionBump(ctx, repoRoot, commitMsg, 'patch');
+    bumps.push({ ...bump, type: ctx.type });
+    console.log(
+      `\n${ctx.label} 版本: ${bump.from} → ${bump.to}（已写入 VERSION / CHANGELOG${bump.created ? '，含缺失文件初始化' : ''}）`
+    );
+  }
+  return bumps;
+}
+
+function primaryVersionBump(versionBumps) {
+  if (!versionBumps || !versionBumps.length) return null;
+  return versionBumps[versionBumps.length - 1];
+}
+
 function printHumanReport(report, opts = {}) {
   if (opts.multi) {
     console.log(`\n--- 仓库: ${report.repoRoot} ---`);
@@ -1028,15 +1166,18 @@ function printHumanReport(report, opts = {}) {
   console.log('\n--- 建议提交说明 ---\n');
   console.log(`Subject: ${report.commit.subject}`);
   if (report.commit.body) console.log(`\n${report.commit.body}`);
-  if (report.versionBump) {
-    const b = report.versionBump;
-    const who = b.skillPrefix ? `${b.skillPrefix} ` : '';
-    if (b.dryRun) console.log(`\n${who}将升版: ${b.from} → ${b.to}（正式执行时写入 VERSION / CHANGELOG）`);
-    else console.log(`\n${who}已升版: ${b.from} → ${b.to}`);
+  if (report.versionBumps && report.versionBumps.length) {
+    console.log('\n版本维护:');
+    for (const b of report.versionBumps) {
+      const who = b.skillPrefix || '项目';
+      const action = b.created ? '初始化/升版' : '升版';
+      if (b.dryRun) console.log(`  - ${who}: ${action} ${b.from} → ${b.to}（正式执行时写入 VERSION / CHANGELOG）`);
+      else console.log(`  - ${who}: ${action} ${b.from} → ${b.to}`);
+    }
   } else if (report.versionCapability) {
-    console.log('\n升版: 未触发（无实质变更或仅版本元数据文件变更）');
+    console.log('\n版本维护: 未触发（无实质变更或仅版本元数据文件变更）');
   } else {
-    console.log('\n升版: 跳过（当前仓库无 pipeline-version.cjs，且范围内无 SKILL.md + VERSION）');
+    console.log('\n版本维护: 跳过（未发现需要维护的项目或子项目）');
   }
   if (report.remoteStatus) {
     const rs = report.remoteStatus;
@@ -1069,19 +1210,10 @@ function buildRepoReport(target, opts, pushProxy) {
   const analysis = analyzeChanges(snapshot);
   const commitMsg = buildCommitMessage(snapshot, analysis, repoOpts);
 
-  const versionCapability = loadPipelineVersionCapability(repoRoot, snapshot);
-  const versionBumpPreview =
-    versionCapability && shouldBumpVersion(snapshot, versionCapability)
-      ? {
-          from: versionCapability.mod.readPipelineVersion(repoRoot),
-          to: versionCapability.mod.bumpVersion(
-            versionCapability.mod.readPipelineVersion(repoRoot),
-            'patch'
-          ),
-          dryRun: true,
-          skillPrefix: versionCapability.skillPrefix || path.basename(repoRoot),
-        }
-      : null;
+  const versionBumpPreview = previewVersionMaintenance(repoRoot, snapshot);
+  const versionCapability = versionBumpPreview.length
+    ? { modPath: null, skillPrefix: versionBumpPreview.map((b) => b.skillPrefix).join(', ') }
+    : null;
 
   const remoteStatus = opts.noPush
     ? null
@@ -1100,11 +1232,10 @@ function buildRepoReport(target, opts, pushProxy) {
     pushProxy: pushProxy || null,
     githubVisibility: opts.githubVisibility,
     remoteStatus,
-    versionCapability: versionCapability
-      ? { modPath: versionCapability.modPath, skillPrefix: versionCapability.skillPrefix }
-      : null,
-    versionBump: versionBumpPreview,
-    std4VersionBump: versionBumpPreview,
+    versionCapability,
+    versionBumps: versionBumpPreview,
+    versionBump: primaryVersionBump(versionBumpPreview),
+    std4VersionBump: primaryVersionBump(versionBumpPreview),
     hasChanges: snapshot.hasChanges || analysis.total > 0,
     hasPendingPush: snapshot.hasPendingPush,
     unpushedCount: snapshot.unpushedCount,
@@ -1197,10 +1328,11 @@ function runRepoCommitPush(report, opts) {
     });
   }
 
-  const versionBump = bumpVersionForCommit(repoRoot, snapshot, commitMsg, opts.dryRun);
-  if (versionBump && opts.dryRun) {
-    report.versionBump = versionBump;
-    report.std4VersionBump = versionBump;
+  const versionBumps = maintainVersionsForCommit(repoRoot, snapshot, commitMsg, opts.dryRun);
+  if (versionBumps.length) {
+    report.versionBumps = versionBumps;
+    report.versionBump = primaryVersionBump(versionBumps);
+    report.std4VersionBump = report.versionBump;
   }
 
   const stagedPreview = report.analysis.byCode.A.concat(
@@ -1211,9 +1343,10 @@ function runRepoCommitPush(report, opts) {
 
   if (opts.dryRun) {
     console.log('\n[dry-run] git add …');
-    if (versionBump && versionBump.dryRun) {
-      const who = versionBump.skillPrefix || '项目';
-      console.log(`[dry-run] ${who} 版本 ${versionBump.from} → ${versionBump.to}，写入 VERSION / CHANGELOG.md`);
+    for (const bump of versionBumps) {
+      const who = bump.skillPrefix || '项目';
+      const action = bump.created ? '初始化/升版' : '升版';
+      console.log(`[dry-run] ${who} ${action} ${bump.from} → ${bump.to}，写入 VERSION / CHANGELOG.md`);
     }
     console.log(`[dry-run] git commit -m "${commitMsg.subject}"`);
     let wouldCreateRemote = false;
@@ -1249,8 +1382,16 @@ function runRepoCommitPush(report, opts) {
     return Promise.resolve(op);
   }
 
-  if (versionBump && !versionBump.dryRun) {
-    report.versionBump = { from: versionBump.from, to: versionBump.to, skillPrefix: versionBump.skillPrefix };
+  if (versionBumps.length && !versionBumps[0].dryRun) {
+    report.versionBumps = versionBumps.map((b) => ({
+      from: b.from,
+      to: b.to,
+      skillPrefix: b.skillPrefix,
+      created: b.created,
+      type: b.type,
+      gitPaths: b.gitPaths,
+    }));
+    report.versionBump = primaryVersionBump(report.versionBumps);
     report.std4VersionBump = report.versionBump;
   }
 
@@ -1268,8 +1409,11 @@ function runRepoCommitPush(report, opts) {
   op.stagedMode = staged.mode;
   actions.push(staged.files[0] === '-A' ? 'git add -A' : `git add（${staged.files.length} 个文件）`);
 
-  if (versionBump && !versionBump.dryRun && versionBump.gitPaths && versionBump.gitPaths.length) {
-    for (const p of versionBump.gitPaths) {
+  const versionGitPaths = versionBumps
+    .filter((b) => !b.dryRun && Array.isArray(b.gitPaths))
+    .flatMap((b) => b.gitPaths);
+  if (versionGitPaths.length) {
+    for (const p of [...new Set(versionGitPaths)]) {
       const ar = git(repoRoot, ['add', '--', p]);
       if (!ar.ok) {
         console.error(`[${repoRoot}] git add 版本文件失败:`, p, ar.stderr);
@@ -1279,7 +1423,10 @@ function runRepoCommitPush(report, opts) {
       }
       if (!op.filesStaged.includes(p)) op.filesStaged.push(p);
     }
-    actions.push(`升版 ${versionBump.from} → ${versionBump.to}`);
+    for (const bump of versionBumps) {
+      const action = bump.created ? '初始化/升版' : '升版';
+      actions.push(`${bump.skillPrefix || '项目'} ${action} ${bump.from} → ${bump.to}`);
+    }
   }
 
   const c = commit(repoRoot, commitMsg.subject, commitMsg.body, false);
@@ -1370,8 +1517,11 @@ function buildPlannedActions(report, opts, extras = {}) {
   if (staged.length) {
     actions.push(staged[0] === '-A' ? 'git add -A' : `git add（${staged.length} 个文件）`);
   }
-  if (report.versionBump) {
-    actions.push(`升版 ${report.versionBump.from} → ${report.versionBump.to}`);
+  if (report.versionBumps && report.versionBumps.length) {
+    for (const bump of report.versionBumps) {
+      const action = bump.created ? '初始化/升版' : '升版';
+      actions.push(`${bump.skillPrefix || '项目'} ${action} ${bump.from} → ${bump.to}`);
+    }
   }
   actions.push(`git commit -m "${report.commit.subject}"`);
   if (!opts.noPush) {
@@ -1397,8 +1547,23 @@ function makeOperationResult(report, opts, base = {}) {
     commitSubject: report.commit.subject,
     filesStaged: [],
     stagedMode: null,
+    versionBumps: report.versionBumps
+      ? report.versionBumps.map((b) => ({
+          from: b.from,
+          to: b.to,
+          skillPrefix: b.skillPrefix,
+          created: b.created,
+          type: b.type,
+        }))
+      : [],
     versionBump: report.versionBump
-      ? { from: report.versionBump.from, to: report.versionBump.to, skillPrefix: report.versionBump.skillPrefix }
+      ? {
+          from: report.versionBump.from,
+          to: report.versionBump.to,
+          skillPrefix: report.versionBump.skillPrefix,
+          created: report.versionBump.created,
+          type: report.versionBump.type,
+        }
       : null,
     remoteCreated: null,
     pushed: false,
@@ -1482,8 +1647,11 @@ function printOperationReport({ results, reports, skipped, opts }) {
       lines.push(`   暂存: ${preview.join(', ')}${more}`);
     }
 
-    if (op.versionBump && !op.dryRun) {
-      lines.push(`   升版: ${op.versionBump.from} → ${op.versionBump.to}`);
+    if (op.versionBumps && op.versionBumps.length && !op.dryRun) {
+      for (const bump of op.versionBumps) {
+        const action = bump.created ? '初始化/升版' : '升版';
+        lines.push(`   ${action}: ${bump.skillPrefix || '项目'} ${bump.from} → ${bump.to}`);
+      }
     }
 
     if (op.pendingPushOnly) {
@@ -1600,7 +1768,7 @@ function main() {
 
   if (!opts.yes && !opts.dryRun) {
     const repos = actionable.map((r) => path.basename(r.repoRoot)).join(', ');
-    console.log(`\n将执行 (${repos}): git add → git commit →` + (opts.noPush ? ' (不推送)' : ' git push'));
+    console.log(`\n将执行 (${repos}): 版本维护 → git add → git commit →` + (opts.noPush ? ' (不推送)' : ' git push'));
     console.log('加 --yes 跳过确认，或 --dry-run 仅预览。\n');
     const readline = require('readline');
     const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
@@ -1642,6 +1810,10 @@ module.exports = {
   bumpVersionForCommit,
   shouldBumpStd4SkillVersion,
   bumpStd4SkillForCommit,
+  discoverVersionableContexts,
+  planVersionMaintenance,
+  previewVersionMaintenance,
+  maintainVersionsForCommit,
   ensureRemoteBeforePush,
   ...githubRemote,
 };

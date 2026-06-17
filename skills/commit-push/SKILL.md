@@ -2,7 +2,7 @@
 name: commit-push
 description: >-
   通用 Git 提交推送 Skill：按变更与对话意图生成 commit message，执行 add/commit/push，
-  支持多仓库分组、自动代理、自动建远端仓库、可选 pipeline 升版。
+  支持多仓库分组、自动代理、自动建远端仓库、自动维护项目与子项目版本日志。
   在用户说「提交推送」「提交并推送」「commit push」「push 上去」或要求把当前改动提交到远程时使用。
 ---
 
@@ -12,9 +12,9 @@ description: >-
 
 > **通用 Skill**：不依赖任何特定项目框架，可在任意 git 仓库中使用（含 std4、piflow 及普通业务仓库）。
 
-功能全景、CLI 参考与升版约定见 [README.md](./README.md)。
+功能全景、CLI 参考与版本维护约定见 [README.md](./README.md)。
 
-脚本在**当前 git 仓库根**（或 `--cwd=` 指定目录）运行，只对该仓库做 commit/push；升版同样只作用于该仓库。
+脚本在**当前 git 仓库根**（或 `--cwd=` 指定目录）运行，只对该仓库做 commit/push；版本维护同样只作用于该仓库。
 
 ## 安装 / 同步到本机 Agent
 
@@ -55,7 +55,7 @@ node ~/.cursor/skills/commit-push/scripts/commit_push.cjs \
 
 1. 对每个文件向上查找 `.git` 根目录
 2. **按仓库分组**
-3. **在每个仓库内**仅 stage 范围内有变更的文件，分别 commit / push（可选升版、可选建仓）
+3. **在每个仓库内**仅 stage 范围内有变更的文件，分别维护版本、commit / push（可选建仓）
 
 未传 `--file` 时：仅在 `--cwd`（或当前目录向上）的**单个** git 仓库内全量提交。
 
@@ -71,7 +71,7 @@ node ~/.cursor/skills/commit-push/scripts/commit_push.cjs \
   --dry-run
 ```
 
-阅读终端里的「分析报告」：变更文件数、主要目录、建议 Subject、是否将升版。与用户意图不一致时，改 `--intent` 或 `-m` 再跑。
+阅读终端里的「分析报告」：变更文件数、主要目录、建议 Subject、将维护哪些项目或子项目版本。与用户意图不一致时，改 `--intent` 或 `-m` 再跑。
 
 ### 3. 正式提交推送
 
@@ -134,32 +134,31 @@ node ~/.cursor/skills/commit-push/scripts/commit_push.cjs \
 
 要求：已安装并登录 `gh`（`gh auth login`）。非 GitHub remote 不会自动建仓。
 
-### 4. 可选自动升版
+### 4. 自动版本维护
 
-**不硬编码任何项目名。** 脚本按以下顺序检测升版能力：
+**不硬编码任何项目名。** 脚本会在 `git add` 之前维护 `VERSION` 与 `CHANGELOG.md`：
 
-1. 优先使用 `**/scripts/libs/pipeline-version.cjs`，且导出 `readPipelineVersion`、`bumpVersion`、`recordCommitPushVersionBump`
-2. 否则从本次变更路径向上查找同时包含 `SKILL.md` 与 `VERSION` 的 skill 目录，使用内置 fallback 维护 `VERSION` / `CHANGELOG.md`
+1. 从本次变更路径向上查找子项目。包含 `SKILL.md` 的目录视为独立 skill 子项目。
+2. 对有实质变更的子项目，先维护该子项目自己的 `VERSION` 与 `CHANGELOG.md`。
+3. 再维护当前 git 仓库根目录的 `VERSION` 与 `CHANGELOG.md`。
 
-两者都不存在则**跳过升版**，仅做普通 commit/push。
+如果目标目录缺少 `VERSION` 或 `CHANGELOG.md`，脚本会自动创建：
 
-当本次变更有**实质内容**（非仅 `VERSION`、`CHANGELOG.md`、`package.json`、`pipeline-manifest.json`）时，在 `git add` 之前：
+- 缺 `VERSION` 时初始化为 `0.1.0`。
+- 缺 `CHANGELOG.md` 时创建 `# Changelog` 并前插本次提交记录。
+- 已存在 `VERSION` 时执行 patch 升版，例如 `0.1.0 → 0.1.1`。
 
-1. 将 `VERSION` **patch +1**；pipeline 模式还会同步 `package.json`、`pipeline-manifest.json`（若存在）
-2. 向 `CHANGELOG.md` **前插**一条记录（标题与 commit subject 一致，正文与 commit body 同步）
-3. 将上述文件一并纳入本次提交
+版本维护顺序固定为：**子项目 VERSION/CHANGELOG.md → 项目根 VERSION/CHANGELOG.md → git add → commit**。
 
-路径过滤优先使用 `pipeline-version.cjs` 导出的 `isSkillRepoPath` / `isVersionMetaOnlyPath`（或兼容别名）；未导出时使用通用回退规则。
-
-`--dry-run` 会在报告中显示计划升版区间（如 `0.1.0 → 0.1.1`），不写入磁盘。
+`--dry-run` 会在报告中显示每个子项目和项目根的计划初始化或升版区间，不写入磁盘。
 
 ### 5. 回复用户
 
 脚本结束时会打印 **`commit_push 操作报告`**（正式执行或 dry-run 均有）。Agent 应据此向用户说明：
 
 - **涉及哪些仓库**、各仓分支与范围文件
-- 逐步动作：git add、升版、commit、建仓、push
-- 提交哈希与 commit 标题、升版区间、是否新建远端
+- 逐步动作：版本维护、git add、commit、建仓、push
+- 提交哈希与 commit 标题、版本初始化或升版区间、是否新建远端
 - 跳过项与失败原因
 
 多仓库时分条列出；不要只回复「已完成」而不引用报告要点。
@@ -178,9 +177,9 @@ node ~/.cursor/skills/commit-push/scripts/commit_push.cjs \
 | --- | --- | --- |
 | 改了什么 | `git status` / `diff` / `log` + **`--file` 范围** | 脚本按文件分组到各 git 根 |
 | 为什么改 | **对话** → `--intent` | Agent 填写 |
-| 是否升版 | 当前仓库的 `pipeline-version.cjs`，或范围内 skill 的 `SKILL.md` + `VERSION` | 脚本 `loadPipelineVersionCapability` |
+| 版本维护 | 当前仓库根目录，以及范围内含 `SKILL.md` 的子项目 | 脚本自动初始化或 patch 升版 `VERSION` / `CHANGELOG.md` |
 | 远端建仓 | 推送前检测 + 用户 `--create-remote` 同意 | 脚本 `github_remote.cjs` |
-| 怎么提交 | `commit_push.cjs` | add →（可选升版）→ commit → push |
+| 怎么提交 | `commit_push.cjs` | 子项目版本维护 → 根项目版本维护 → add → commit → push |
 
 脚本路径：`~/.cursor/skills/commit-push/scripts/commit_push.cjs`
 
@@ -191,7 +190,7 @@ node ~/.cursor/skills/commit-push/scripts/commit_push.cjs \
 | `Repository not found` / 远端不可用 | 见下方「远端不存在」；用户同意后加 `--create-remote --yes` |
 | 远端不存在 / 未配置 origin | 脚本会列出选项；交互模式可确认建仓；Agent 用 `--create-remote --yes` |
 | `nothing to commit` | 无变更或已被 ignore |
-| 升版: 跳过 | 仓库无 `pipeline-version.cjs`，且范围内无 `SKILL.md` + `VERSION`，属正常 |
+| 版本维护: 跳过 | 范围内没有可维护项目或只有无需提交的状态 | 正常 |
 | 建议标题离谱 | 补全或改写 `--intent`，勿只靠启发式 |
 | `git pull 合并失败` | 远端有冲突文件，手动 `git pull`、解决冲突、`git add`、`git commit`，再重新运行脚本推送 |
 | fetch 失败但继续推送 | 仅打印警告，常见于首次推送（远端分支尚不存在），脚本仍会执行 `push -u` |
