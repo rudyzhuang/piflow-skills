@@ -1,6 +1,9 @@
 ---
 name: add-skill-lib
-description: Add or sync Git-hosted skill libraries into the PiFlow pipeline repository. Two modes: (1) single library mode — use when the user provides a Git URL and asks to 增加技能库, 增加piflow技能库, 增加pif技能库, add skill lib, add pif skill lib, add piflow skill lib, 纳入新的 skill library, clone/register/sync a skill library into skill-libraries/repos, extract library and skill metadata, write skill.yaml under skill-libraries/libs, register it in skill-libraries/libraries.yaml, expose skills in skills-template.yaml, wire skills into stages/workflows, validate path plus locator contracts, or update PiFlow skill library self-tests; (2) batch sync mode — use when the user asks to 安装技能库, 安装 piflow 技能库, 安装 pif 技能库, 检查技能库, 更新技能库, 更新 piflow 技能库, 更新 pif 技能库, or any request to batch-install/verify/update all registered skill libraries without providing a specific Git URL. In batch mode read skill-libraries/libraries.yaml, for each library entry check if the source repo is cloned under skill-libraries/repos/, clone any missing repos, update existing repos on update requests, verify metadata paths exist, and report the complete status of every registered library.
+description: >-
+  Use when adding, registering, installing, checking, or updating Git-hosted
+  PiFlow skill libraries, especially requests mentioning 增加技能库, 安装技能库,
+  检查技能库, 更新技能库, add skill lib, add piflow skill lib, or skill-libraries.
 ---
 
 # Add Skill Library
