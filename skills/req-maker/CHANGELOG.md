@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.2.4 - 2026-06-17
+
+- 更新 piflow skills 文档与提交推送流程
+- Changed: 22 file(s).
+- Areas: skills(21), .(1).
+- Hints: scripts/tests, documentation.
+- Added: 13, Modified: 9, Deleted: 0.
+
 ## 0.2.3 - 2026-06-04
 
 - 整理 piflow-skills 插件结构并同步安装入口
