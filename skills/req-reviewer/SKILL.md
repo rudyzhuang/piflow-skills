@@ -35,7 +35,9 @@ Write in Chinese unless the user asks for another language.
 4. Run template-format and content checks before semantic review.
    - Compare `inputs/req.md` against the loaded template before making any revision.
    - Check required sections and section order, especially `## 项目名称 *`, `## 项目简介 *`, `## Agent 设置`, `## 客户端目标 *`, `## 核心功能 *`, `## 非功能需求`, `## 测试用例`, `## 部署 *` or compatible deployment section, `## 鉴权方案`, and `## 技术约束`.
-   - Check core fields are present when relevant: `feature_id`, `priority`, `phase`, `client_targets`, `structured_source`, `freeform_source`, `description`, `user_stories`, `acceptance_criteria`, `dependencies`, test case fields, deployment fields, and auth fields.
+   - Check core fields are present when relevant: `feature_id`, `priority`, `phase`, `client_targets`, `structured_source`, `freeform_source`, `freeform_content`, `description`, `user_stories`, `acceptance_criteria`, `dependencies`, test case fields, deployment fields, and auth fields.
+   - Check the `## 核心功能 *` section header, before the first `### Feature:`, contains project-level `freeform_source:` and `freeform_content:` fields. This project-level `freeform_content` summarizes the overall functional capability set across all features.
+   - Check every feature block contains a non-empty `freeform_content:` field. The value must be a natural-language description of that feature's functional intent, not a copy of the whole project summary, not only the title, and not a YAML field dump.
    - Check the document does not leave confusing template comments, copied placeholder examples, empty required business sections, or invalid placeholder values as final content.
 
 5. Back up before the first write.
@@ -53,6 +55,8 @@ Write in Chinese unless the user asks for another language.
 7. Run the review.
    - Check source coverage: whether `req.md` omitted or misunderstood user input, documents, Figma Make intent, screenshots, specs, issues, or other supplied sources.
    - Check requirements quality: reasonableness, completeness, consistency, product-facing wording, priorities, phases, dependencies, client targets, non-functional requirements, test cases, acceptance criteria, auth, deployment, and technical constraints.
+   - Check project-level freeform provenance: if the overall functional description came from user prompt, documents, Figma Make, screenshots, Backend export, or req-maker source material and was then organized by AI, mark `freeform_source: from_user`; if it is inferred only by summarizing already-structured features during review, mark `freeform_source: from_ai`.
+   - Check feature-level freeform provenance: preserve a user-provided feature freeform description as `from_user`; when the field is missing or empty and the reviewer infers it from `description`, `user_stories`, `acceptance_criteria`, `client_targets`, or neighboring context, fill it and mark `freeform_source: from_ai`.
    - Check `feature_id`: presence, uniqueness, valid format, stable preservation for existing features, appropriate prefix, and consistent use in dependencies and test cases.
    - For multi-client requirements, check contract consistency and completeness across clients: shared data model, API semantics, auth and permission rules, state transitions, error handling, empty/loading states, routing, deployment assumptions, and test coverage.
    - For modifications or additions, check backward compatibility with the previous requirement version: existing feature IDs, client targets, API/data expectations, accepted behavior, migration impact, and whether breaking changes are explicitly called out with migration or rollout steps.
@@ -61,6 +65,8 @@ Write in Chinese unless the user asks for another language.
    - Produce concrete findings internally, then apply fixes directly to the requirement document.
    - Keep the existing template headings and field names unless the user explicitly asks to change the template.
    - Preserve Backend/export traceability fields when present, including `requirement_id`, `item_id`, `source_item_id`, `version_number`, `version_hash`, and `version_status`.
+   - Preserve existing non-empty `freeform_content` when it matches the feature scope and contains no sensitive information. If it is missing, empty, a template placeholder, copied from another feature, or only repeats the heading, replace it with a concise natural-language functional description and set `freeform_source: from_ai`.
+   - Add project-level `freeform_source:` and `freeform_content:` immediately after `## 核心功能 *` and before the first feature when missing. Use `from_user` when source material contains the overall product/function description; otherwise summarize the reviewed features and use `from_ai`.
    - Preserve existing valid `feature_id` values for unchanged features.
    - Generate or repair `feature_id` only when a new feature lacks one or an existing value is invalid.
    - Do not write secrets, auth headers, device keys, stack traces, or private credentials into `req.md`.
@@ -104,6 +110,8 @@ Each review pass must check:
 - Completeness: required sections, features, non-functional requirements, test cases, deployment, auth, technical constraints, risks, and notes are present when relevant.
 - Reasonableness: requirements are feasible, appropriately scoped, and product-facing.
 - Consistency: terms, feature IDs, client targets, priorities, phases, dependencies, acceptance criteria, and tests agree with each other.
+- Freeform coverage: `## 核心功能 *` has project-level `freeform_content`, and every feature has non-empty `freeform_content` whose scope matches that feature.
+- Freeform source: `freeform_source` uses `from_user` for user-sourced freeform descriptions and `from_ai` for reviewer-inferred descriptions. Treat legacy `user` as `from_user` and legacy `ai` as `from_ai`; revise final documents to the `from_*` form when editing nearby fields.
 - Feature IDs: IDs are present for new features, unique, stable for existing features, valid, and consistently referenced.
 - Priority and phase: `must/should/nice` and `mvp/v1/later` choices match business criticality and release scope.
 - Client targets: each feature's targets match the actual required surfaces.
@@ -140,6 +148,26 @@ Prefer appending a concise review record to an existing review section. If no su
 ```
 
 Do not leave a separate review report as the only deliverable unless the user explicitly asks for one.
+
+## Freeform Content Rules
+
+The reviewer must keep two levels of freeform requirement text:
+
+- Project-level: under `## 核心功能 *`, before the first `### Feature:`, write `freeform_source:` and `freeform_content:`. This describes the overall functional capability set of the project by summarizing what users can accomplish across all features.
+- Feature-level: inside every `### Feature:` block, write `freeform_source:` and `freeform_content:`. This describes the natural-language functional intent of that specific feature.
+
+Source rules:
+
+- Use `freeform_source: from_user` when the text comes from user-provided source material, including a prompt, document, Figma Make bundle, screenshot notes, Backend export, or req-maker generated draft based on those sources. AI cleanup, wording normalization, and organization do not change the source from user to AI.
+- Use `freeform_source: from_ai` when the reviewer creates the text from structured fields because the original document had no usable freeform text.
+- Legacy values are accepted for reading only: `user` means `from_user`; `ai` means `from_ai`.
+
+Revision rules:
+
+- If a feature lacks `freeform_content` or its value is empty, infer a concise natural-language description from the feature's heading, `description`, `user_stories`, `acceptance_criteria`, `client_targets`, and dependencies; then set `freeform_source: from_ai`.
+- If project-level `freeform_content` is missing, use the user's overall source description when available and set `from_user`; otherwise summarize all feature-level descriptions and set `from_ai`.
+- Do not put secrets, tokens, api keys, stack traces, or private credentials into `freeform_content`.
+- Do not use `freeform_content` to add new business scope that is not supported by the source material or existing structured fields.
 
 ## Git Rules
 

@@ -1,12 +1,19 @@
 # Changelog
 
-## 0.1.7 - 2026-06-17
+## 0.1.8 - 2026-06-17
 
 - 更新 piflow skills 文档与提交推送流程
 - Changed: 22 file(s).
 - Areas: skills(21), .(1).
 - Hints: scripts/tests, documentation.
 - Added: 13, Modified: 9, Deleted: 0.
+
+## 0.1.7 - 2026-06-16
+
+- 为 add-skill-lib 增加批量同步模式触发词（安装/检查/更新技能库）
+- Changed: 1 file(s).
+- Areas: skills(1).
+- Hints: documentation.
 
 ## 0.1.6 - 2026-06-16
 

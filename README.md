@@ -1,6 +1,6 @@
 # piflow-skills
 
-Personal Agent Skills for Cursor, Codex, and Claude Code.
+Personal Agent Skills for Cursor, Codex, OpenCode, and Claude Code.
 
 This repository keeps multiple skills in one place and uses a single root
 installer, `install.mjs`, to install or sync them into local agent skill
@@ -28,6 +28,7 @@ The installer detects and installs to these user-level skill directories:
 | --- | --- |
 | Cursor | `~/.cursor/skills/<skill-name>` |
 | Codex | `~/.codex/skills/<skill-name>` |
+| OpenCode | `~/.config/opencode/skills/<skill-name>` |
 | Claude Code | `~/.claude/skills/<skill-name>` |
 
 By default, the installer creates symlinks from the agent skill directory back
@@ -80,13 +81,14 @@ Install only to one agent:
 ```bash
 node install.mjs --only codex
 node install.mjs req-maker --only cursor
+node install.mjs req-maker --only opencode
 node install.mjs commit-push --only claude
 ```
 
 Install only to multiple selected agents:
 
 ```bash
-node install.mjs req-maker --only codex --only claude
+node install.mjs req-maker --only codex --only opencode --only claude
 ```
 
 Install to all known agent directories even if an agent is not detected:

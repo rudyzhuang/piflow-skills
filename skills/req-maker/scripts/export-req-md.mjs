@@ -12,7 +12,7 @@ const enumSets = {
   clientTarget: new Set(["website", "admin", "backend", "mobile", "desktop", "miniapp"]),
   versionStatus: new Set(["draft", "ai-reviewed", "reviewed"]),
   structuredSource: new Set(["user", "ai"]),
-  freeformSource: new Set(["user", "ai"]),
+  freeformSource: new Set(["user", "ai", "from_user", "from_ai"]),
   priority: new Set(["must", "should", "nice"]),
   phase: new Set(["mvp", "v1", "later"]),
   testType: new Set(["smoke", "e2e", "api", "regression", "edge", "error"]),
@@ -187,6 +187,13 @@ function checkEnum(value, allowed, path, errors, allowEmpty = false) {
   return value;
 }
 
+function normalizeFreeformSource(value) {
+  const raw = String(value || "").trim();
+  if (raw === "user") return "from_user";
+  if (raw === "ai") return "from_ai";
+  return raw;
+}
+
 function preferStructured(item, key, fallback = undefined) {
   const structured = item.structured_content && typeof item.structured_content === "object"
     ? item.structured_content
@@ -214,6 +221,18 @@ function validateDocument(raw) {
       name_en: requiredString(projectName.name_en, "project_name.name_en", errors),
     },
     project_summary: requiredString(raw.project_summary, "project_summary", errors, true),
+    project_freeform_content: String(
+      raw.project_freeform_content
+      ?? raw.freeform_content
+      ?? raw.project_summary_freeform_content
+      ?? "",
+    ).trim(),
+    project_freeform_source: normalizeFreeformSource(
+      raw.project_freeform_source
+      ?? raw.freeform_source
+      ?? raw.project_summary_freeform_source
+      ?? "",
+    ),
     agent: {
       agent_provider: raw.agent?.agent_provider ? String(raw.agent.agent_provider).trim() : "codex",
       agent_model: raw.agent?.agent_model ? String(raw.agent.agent_model).trim() : "gpt-5.5",
@@ -275,11 +294,12 @@ function validateDocument(raw) {
       phase: checkEnum(preferStructured(feature, "phase"), enumSets.phase, `features[${index}].phase`, errors),
       client_targets: normalizeArray(preferStructured(feature, "client_targets"), `features[${index}].client_targets`, errors),
       description: String(preferStructured(feature, "description", feature?.freeform_content || "") || "").trim(),
+      freeform_content: feature?.freeform_content == null ? "" : String(feature.freeform_content).trim(),
       user_stories: normalizeArray(preferStructured(feature, "user_stories"), `features[${index}].user_stories`, errors),
       acceptance_criteria: normalizeArray(preferStructured(feature, "acceptance_criteria"), `features[${index}].acceptance_criteria`, errors),
       dependencies: normalizeArray(preferStructured(feature, "dependencies"), `features[${index}].dependencies`, errors),
       structured_source: structuredSource,
-      freeform_source: freeformSource,
+      freeform_source: normalizeFreeformSource(freeformSource),
     };
     if (normalized.version_number === undefined || normalized.version_number === null || normalized.version_number === "") {
       errors.push(`features[${index}].version_number is required`);
@@ -329,6 +349,9 @@ function validateDocument(raw) {
       steps: normalizeArray(preferStructured(testCase, "steps"), `test_cases[${index}].steps`, errors),
       expected: normalizeArray(preferStructured(testCase, "expected"), `test_cases[${index}].expected`, errors),
       test_data: normalizeArray(preferStructured(testCase, "test_data"), `test_cases[${index}].test_data`, errors),
+      freeform_content: testCase?.freeform_content == null ? "" : String(testCase.freeform_content).trim(),
+      structured_source: structuredSource,
+      freeform_source: normalizeFreeformSource(freeformSource),
     };
     if (normalized.version_number === undefined || normalized.version_number === null || normalized.version_number === "") {
       errors.push(`test_cases[${index}].version_number is required`);
@@ -372,6 +395,12 @@ function renderDocument(doc, template) {
   if (!doc.client_targets.length) lines.push("-");
   lines.push("");
   lines.push("## 核心功能 *", "");
+  const projectFreeformContent = String(doc.project_freeform_content || "").trim();
+  if (projectFreeformContent) {
+    lines.push(`freeform_source: ${normalizeFreeformSource(doc.project_freeform_source || "from_user")}`);
+    lines.push("freeform_content:");
+    lines.push(projectFreeformContent, "");
+  }
   for (const feature of doc.features) {
     const headingClient = feature.heading_client || feature.client_targets[0] || "backend";
     lines.push(`### Feature: ${headingClient} 端 - ${feature.heading_title}`, "");
@@ -385,8 +414,12 @@ function renderDocument(doc, template) {
     lines.push(`priority: ${feature.priority}`);
     lines.push(`phase: ${feature.phase}`);
     lines.push(`client_targets: ${bracketList(feature.client_targets)}`);
+    lines.push(`structured_source: ${feature.structured_source}`);
+    lines.push(`freeform_source: ${feature.freeform_source}`);
     lines.push("description:");
     lines.push(feature.description, "");
+    lines.push("freeform_content:");
+    lines.push(feature.freeform_content || feature.description, "");
     lines.push("user_stories:");
     lines.push(listLines(feature.user_stories), "");
     lines.push("acceptance_criteria:");
@@ -420,7 +453,11 @@ function renderDocument(doc, template) {
       lines.push(`version_status: ${testCase.version_status}`);
       lines.push(`client_target: ${testCase.client_target}`);
       lines.push(`type: ${testCase.type}`);
-      lines.push(`priority: ${testCase.priority}`, "");
+      lines.push(`priority: ${testCase.priority}`);
+      lines.push(`structured_source: ${testCase.structured_source}`);
+      lines.push(`freeform_source: ${testCase.freeform_source}`, "");
+      lines.push("freeform_content:");
+      lines.push(testCase.freeform_content || testCase.title, "");
       lines.push("preconditions:");
       lines.push(listLines(testCase.preconditions), "");
       lines.push("steps:");
@@ -529,14 +566,14 @@ function validateMarkdown(markdown, template) {
 
   const featureBlocks = markdown.split(/^### Feature:/m).slice(1);
   for (const [index, block] of featureBlocks.entries()) {
-    for (const field of ["feature_id:", "priority:", "phase:", "client_targets:", "description:", "user_stories:", "acceptance_criteria:", "dependencies:", "requirement_id:", "item_id:", "source_item_id:", "version_number:", "version_hash:", "version_status:"]) {
+    for (const field of ["feature_id:", "priority:", "phase:", "client_targets:", "structured_source:", "freeform_source:", "description:", "freeform_content:", "user_stories:", "acceptance_criteria:", "dependencies:", "requirement_id:", "item_id:", "source_item_id:", "version_number:", "version_hash:", "version_status:"]) {
       if (!block.includes(field)) errors.push(`feature[${index}] missing ${field}`);
     }
   }
 
   const testBlocks = markdown.split(/^### TC-\d+:/m).slice(1);
   for (const [index, block] of testBlocks.entries()) {
-    for (const field of ["item_id:", "source_item_id:", "version_number:", "version_hash:", "version_status:", "client_target:", "type:", "priority:"]) {
+    for (const field of ["item_id:", "source_item_id:", "version_number:", "version_hash:", "version_status:", "client_target:", "type:", "priority:", "structured_source:", "freeform_source:", "freeform_content:"]) {
       if (!block.includes(field)) errors.push(`test_cases[${index}] missing ${field}`);
     }
   }

@@ -1,7 +1,7 @@
 interface:
   display_name: "PiFlow Status Inspector"
-  short_description: "读取 output-stages/stages.json 汇总当前项目运行状态"
-  default_prompt: "Use $piflow-status-inspector to check the current PiFlow project runtime status from output-stages/stages.json."
+  short_description: "读取 output-stages/stages.json 输出项目介绍、当前运行和后续阶段"
+  default_prompt: "Use $piflow-status-inspector to check the current PiFlow project runtime status from output-stages/stages.json. Run the bundled project_status.cjs script and include its required Chinese Markdown sections: 项目介绍, 当前运行, 后续阶段. Do not replace the report with a short legacy summary."
 
 policy:
   allow_implicit_invocation: true

@@ -16,7 +16,7 @@ const SKILLS_ROOT = path.join(REPO_ROOT, "skills");
 const PLUGIN_MANIFEST = path.join(REPO_ROOT, ".codex-plugin", "plugin.json");
 const SKIP_DIRS = new Set([".git", "__pycache__", ".pytest_cache", ".mypy_cache", ".ruff_cache"]);
 const SKIP_FILES = new Set([".DS_Store"]);
-const VALID_ONLY = new Set(["cursor", "codex", "claude"]);
+const VALID_ONLY = new Set(["cursor", "codex", "opencode", "claude"]);
 const CODEX_PERSONAL_MARKETPLACE_NAME = "personal";
 const REQUIRED_SKILL_FILES = ["SKILL.md", "VERSION", "CHANGELOG.md", "README.md", "README.zh-CN.md", "install.mjs"];
 
@@ -33,6 +33,9 @@ function buildTargets(skillName) {
   const home = os.homedir();
   const isWindows = process.platform === "win32";
   const commandSuffix = isWindows ? ".cmd" : "";
+  const opencodeConfigDir = process.env.XDG_CONFIG_HOME
+    ? path.join(process.env.XDG_CONFIG_HOME, "opencode")
+    : path.join(home, ".config", "opencode");
 
   return [
     {
@@ -59,6 +62,17 @@ function buildTargets(skillName) {
         path.join(home, ".codex"),
         windowsEnvPath("APPDATA", "Codex"),
         windowsEnvPath("LOCALAPPDATA", "Codex"),
+      ]),
+    },
+    {
+      key: "opencode",
+      label: "OpenCode",
+      skillsDir: path.join(opencodeConfigDir, "skills"),
+      commandNames: [`opencode${commandSuffix}`, "opencode"],
+      markerPaths: existingPaths([
+        opencodeConfigDir,
+        windowsEnvPath("APPDATA", "opencode"),
+        windowsEnvPath("LOCALAPPDATA", "opencode"),
       ]),
     },
     {
@@ -425,7 +439,7 @@ function usage() {
     "  --all                 install to all known tool skill directories, even if the tool is not detected",
     "  --all-skills          install every directory that contains SKILL.md",
     "  --skill <name>        install the selected skill; may be provided multiple times",
-    "  --only <tool>         install only to cursor, codex, or claude; may be provided multiple times",
+    "  --only <tool>         install only to cursor, codex, opencode, or claude; may be provided multiple times",
     "  --dry-run             print what would be installed without writing files",
     "  --copy                copy files instead of creating symlinks",
     "  -h, --help            show this help",
@@ -466,14 +480,14 @@ function parseArgs(argv) {
     } else if (arg === "--only") {
       const value = argv[index + 1];
       if (!value || !VALID_ONLY.has(value)) {
-        throw new Error("--only requires one of: cursor, codex, claude");
+        throw new Error("--only requires one of: cursor, codex, opencode, claude");
       }
       args.only.push(value);
       index += 1;
     } else if (arg.startsWith("--only=")) {
       const value = arg.slice("--only=".length);
       if (!VALID_ONLY.has(value)) {
-        throw new Error("--only requires one of: cursor, codex, claude");
+        throw new Error("--only requires one of: cursor, codex, opencode, claude");
       }
       args.only.push(value);
     } else if (arg === "-h" || arg === "--help") {
