@@ -1,7 +1,7 @@
 interface:
   display_name: "PiFlow Fail Fixer"
-  short_description: "读取 stages.json 分析最后失败并按确定性修复"
-  default_prompt: "Use $piflow-fail-fixer to analyze the latest failed PiFlow report from output-stages/stages.json and fix it when the root cause is certain."
+  short_description: "基于真实失败证据分析根因、落方案、修复并验证"
+  default_prompt: "Use $piflow-fail-fixer to analyze a failed or stopped PiFlow project from real evidence, write a repair plan, apply a real fix when the root cause is clear, and report verification results before rerun."
 
 policy:
   allow_implicit_invocation: true

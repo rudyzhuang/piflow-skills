@@ -1,0 +1,7 @@
+interface:
+  display_name: "PiFlow Recovery Interceptor"
+  short_description: "监督运行中的 PiFlow，recovery 前拦截、取证、修复、验证并重启复监控"
+  default_prompt: "Use $piflow-recovery-interceptor to supervise the live PiFlow pipeline, intercept before internal recovery executes, collect real evidence, govern the repair plan, verify the fix, restart the pipeline, and continue monitoring."
+
+policy:
+  allow_implicit_invocation: true
