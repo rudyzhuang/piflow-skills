@@ -5,7 +5,7 @@ title: piflow-skills plan_index
 评审状态: 全部评审
 执行状态: 全部执行
 创建时间: 2026-06-06 19:32
-修改时间: 2026-06-21 00:25
+修改时间: 2026-06-21 15:06
 作者: Codex
 评审轮次: 10
 评审结果: 通过
@@ -76,7 +76,7 @@ title: piflow-skills plan_index
 - 验收标准: `prd-spec-author` 能在保留有效内容的同时修正与 requirement 真源冲突的旧内容；共享 PRD 总源在通过时至少完整覆盖产品意图、客户端目标、核心功能、范围与非目标、完整性覆盖、部署架构；共享 PRD 总源可清晰表达关键用户流程、跨端边界和异常覆盖；若 requirement 可追踪，PRD feature 至少保留轻量级来源映射；默认主链仍只依赖官方 skill 即可稳定运行。
 - 状态记录:
   - 2026-06-21 14:10: 根据用户对 `prd-spec-author` 在 PiFlow 流水线中职责的评审要求新增方案文档。当前仅完成方案归档和索引登记，尚未修改 skill 本体，因此状态为 `未执行`、`待评审`。
-  - 2026-06-21 00:25: 已执行。`prd-spec-author` 已升级为共享 PRD 总源作者器；补充 requirement 冲突纠正、source coverage / quality review loop、轻量 traceability 与共享 PRD 最低契约；README、agent 元数据、版本与 changelog 已同步。验证通过: `rg` 关键规则检查、`git diff --check`。
+  - 2026-06-21 15:05: 已执行。`prd-spec-author` 已升级为共享 PRD 总源作者器；补充 requirement 冲突纠正、source coverage / quality review loop、轻量 traceability 与共享 PRD 最低契约；README、agent 元数据、版本与 changelog 已同步。验证通过: `rg` 关键规则检查、`git diff --check`。
 
 ### PS-003 prd-client-author 从字段补全器升级为端内 PRD 合同作者器
 
@@ -91,7 +91,7 @@ title: piflow-skills plan_index
 - 验收标准: `prd-client-author` 能明确决定当前端应承接哪些 shared feature；每个端内 feature 都能体现当前端视角的合同描述而不是简单复写 shared summary；端特定字段不混用；`feature_list` 与 JSON 保持一致性投影；已有非空但与 shared PRD 或当前端 contract 冲突的字段会被修正；默认主链仍只依赖官方 skill 即可稳定运行。
 - 状态记录:
   - 2026-06-21 14:35: 根据用户要求，按与 `prd-spec-author` 相同的标准完成 `prd-client-author` 评审并新增方案文档。当前仅完成文档归档和索引登记，尚未修改 skill 本体，因此状态为 `未执行`、`待评审`。
-  - 2026-06-21 00:25: 已执行。`prd-client-author` 已升级为端内 PRD 合同作者器；补充 shared feature 投影规则、端特定字段边界、端内完整性复审和 `feature_list` 确定性投影；README、agent 元数据、版本与 changelog 已同步。验证通过: `rg` 关键规则检查、`git diff --check`。
+  - 2026-06-21 15:05: 已执行。`prd-client-author` 已升级为端内 PRD 合同作者器；补充 shared feature 投影规则、端特定字段边界、端内完整性复审和 `feature_list` 确定性投影；README、agent 元数据、版本与 changelog 已同步。验证通过: `rg` 关键规则检查、`git diff --check`。
 
 ### PS-004 prd-reviewer 从轻量 readiness reviewer 升级为证据化 PRD 门闸 reviewer
 
@@ -106,7 +106,7 @@ title: piflow-skills plan_index
 - 验收标准: reviewer 能覆盖每个可见 feature 并给出证据来源；所有 blocking issues 都能定位到具体文档、字段或阶段输出；通过状态不存在未解决 blocker；defer 项必须给出原因、影响和重新进入条件；recommendation 不阻断流水线但可被 author 后续采纳；自检覆盖完整性、一致性、清晰度、范围控制和实现可行性五个维度。
 - 状态记录:
   - 2026-06-21 14:55: 根据用户要求，按与 `prd-spec-author`、`prd-client-author` 相同的标准完成 `prd-reviewer` 评审并新增方案文档。当前仅完成文档归档和索引登记，尚未修改 skill 本体，因此状态为 `未执行`、`待评审`。
-  - 2026-06-21 00:25: 已执行。`prd-reviewer` 已升级为证据化 PRD 门闸 reviewer；补充 evidence matrix、blocking/recommendation/clarification 分级、跨产物一致性检查、review self-check 和端特定 checklist；README、agent 元数据、版本与 changelog 已同步。验证通过: `rg` 关键规则检查、`git diff --check`。
+  - 2026-06-21 15:05: 已执行。`prd-reviewer` 已升级为证据化 PRD 门闸 reviewer；补充 evidence matrix、blocking/recommendation/clarification 分级、跨产物一致性检查、review self-check 和端特定 checklist；README、agent 元数据、版本与 changelog 已同步。验证通过: `rg` 关键规则检查、`git diff --check`。
 
 ## 4. 矛盾与去重处理
 
