@@ -6,8 +6,10 @@ Chinese documentation: [README.zh-CN.md](./README.zh-CN.md).
 
 It is designed for the PRD stage's Agent-A role:
 
-- preserve existing non-empty PRD sections
+- preserve valid existing PRD sections
+- correct stale content that conflicts with requirement truth
 - fill missing or placeholder content incrementally
+- run source coverage and shared-spec quality review loops before finishing
 - keep client targets, feature IDs, scope, non-goals, completeness, and deployment architecture aligned
 - produce a stable source document for downstream per-client PRD generation
 
@@ -38,11 +40,11 @@ node ../install.mjs prd-spec-author --copy
 ## Usage
 
 ```text
-Use $prd-spec-author to regenerate output-stages/prd/prd-spec.md from inputs/req.yaml without overwriting existing non-empty sections.
+Use $prd-spec-author to regenerate output-stages/prd/prd-spec.md from inputs/req.yaml, preserve valid content, correct requirement conflicts, and run coverage/quality checks before finishing.
 ```
 
 ```text
-使用 prd-spec-author，根据 canonical req 增量补全 output-stages/prd/prd-spec.md，保留已有非空内容。
+使用 prd-spec-author，根据 canonical req 修订 output-stages/prd/prd-spec.md，保留有效内容、纠正与真源冲突的旧内容，并完成覆盖与质量自检。
 ```
 
 ## Files

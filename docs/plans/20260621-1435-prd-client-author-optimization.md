@@ -1,13 +1,13 @@
 ---
 title: prd-client-author 优化方案
 版本: 1.0.1
-文档状态: 草稿
-代码实现: 未执行
-实现文档版本: 无
+文档状态: 已执行
+代码实现: 已执行
+实现文档版本: 0.2.0
 创建时间: 2026-06-21 14:35
-修改时间: 2026-06-21 14:48
+修改时间: 2026-06-21 00:25
 作者: Codex
-评审轮次: 1
+评审轮次: 2
 评审结果: 通过
 来源上下文:
   - 用户要求按与 prd-spec-author 类似的标准评审 prd-client-author，并更新 piflow 方案文档
@@ -492,3 +492,17 @@ title: prd-client-author 优化方案
   - `admin` 和 `backend` 是最可能需要 companion 的两个端，但目前还没到必须拆主 skill 的程度。
 - 修改:
   - 补充单主 skill / companion skill 的结构决策、判定标准和实施阶段。
+
+### 第 2 轮执行复核
+
+- 结论: 通过，方案已执行。
+- 发现:
+  - `prd-client-author` 的核心定位已升级为“端内 PRD 合同作者器”，不再只是按端补字段。
+  - `SKILL.md` 已补入 shared feature 投影规则、端特定字段边界、端内完整性复审和 `feature_list` 确定性投影规则。
+  - 中英文 README、`agents/openai.yaml`、`VERSION` 和 `CHANGELOG.md` 已同步，主 skill 对外表述与内部 contract 一致。
+- 修改:
+  - 将代码实现状态更新为已执行，`实现文档版本` 更新为 `0.2.0`。
+- 验证:
+  - `rg -n "Target Projection Rules|deterministic projection|target completeness review loop|Do not mix target-specific field families" skills/prd-client-author/SKILL.md`
+  - `rg -n "project shared features|target completeness review|shared PRD 投影" skills/prd-client-author/README.md skills/prd-client-author/README.zh-CN.md`
+  - `git diff --check`

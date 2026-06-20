@@ -8,7 +8,10 @@ English documentation: [README.md](./README.md).
 
 - 读取共享总源 `output-stages/prd/prd-spec.md`
 - 只处理一个 `client_target`
-- 保留当前端已有非空字段
+- 保留当前端已有有效字段
+- 在与 shared PRD 冲突时修正过期字段
+- 把 shared PRD feature 投影成当前端合同
+- 在结束前执行端内完整性复审
 - 补齐当前端的功能、范围、完整性和契约字段
 - 保持 `feature_id` 与共享 PRD 总源一致
 
@@ -39,11 +42,11 @@ node ../install.mjs prd-client-author --copy
 ## 用法
 
 ```text
-使用 prd-client-author，只补全当前端的 prd-*.json 和 feature_list，不要改别的端。
+使用 prd-client-author，只修改当前端产物，把 shared PRD 投影成该端合同，修正过期字段并同步 feature_list。
 ```
 
 ```text
-Use $prd-client-author to update output-stages/prd/prd-backend.json for the backend target and refresh feature_list-backend.md.
+Use $prd-client-author to update output-stages/prd/prd-backend.json for the backend target, project the shared PRD into backend-specific contracts, and refresh feature_list-backend.md.
 ```
 
 ## 文件

@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.2.0 - 2026-06-21
+
+- 强化 `prd-client-author` 为端内 PRD 合同作者器，不再只定位为字段补全器
+- 新增 shared feature 到当前端的投影规则、端内完整性复审和过期字段纠正规则
+- 将 `feature_list` 明确为 PRD JSON 的确定性投影
+- 同步更新中英文 README 与技能说明
+
 ## 0.1.1 - 2026-06-20
 
 - 新增 PRD 产出与评审相关 skill 并更新中英文技能索引

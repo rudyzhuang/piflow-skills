@@ -8,7 +8,10 @@ It is designed for the PRD stage's Agent-B role:
 
 - read the shared `output-stages/prd/prd-spec.md`
 - focus on one `client_target`
-- preserve existing non-empty target fields
+- preserve valid existing target fields
+- correct stale target fields that conflict with the shared PRD
+- project shared features into target-specific contracts
+- run a target completeness review before finishing
 - fill target-specific feature, scope, completeness, and contract details
 - keep feature IDs aligned with the shared PRD source
 
@@ -39,11 +42,11 @@ node ../install.mjs prd-client-author --copy
 ## Usage
 
 ```text
-Use $prd-client-author to update output-stages/prd/prd-backend.json for the backend target and refresh feature_list-backend.md.
+Use $prd-client-author to update output-stages/prd/prd-backend.json for the backend target, project the shared PRD into backend-specific contracts, and refresh feature_list-backend.md.
 ```
 
 ```text
-使用 prd-client-author，只补全当前端的 prd-*.json 和 feature_list，不要改别的端。
+使用 prd-client-author，只修改当前端产物，把 shared PRD 投影成该端合同，修正过期字段并同步 feature_list。
 ```
 
 ## Files

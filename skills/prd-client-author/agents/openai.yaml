@@ -1,7 +1,7 @@
 interface:
   display_name: "PRD Client Author"
-  short_description: "按单个 client target 生成 PiFlow 分端 PRD JSON 与 feature list"
-  default_prompt: "Use $prd-client-author to update exactly one PiFlow per-client PRD file from output-stages/prd/prd-spec.md, preserve existing non-empty fields, keep feature IDs aligned, and refresh the matching feature_list markdown."
+  short_description: "按单个 client target 生成 PiFlow 分端 PRD 合同与 feature list"
+  default_prompt: "Use $prd-client-author to update exactly one PiFlow per-client PRD file from output-stages/prd/prd-spec.md, project shared features into target-specific contracts, correct stale conflicts, and refresh the matching feature_list markdown."
 
 policy:
   allow_implicit_invocation: true
