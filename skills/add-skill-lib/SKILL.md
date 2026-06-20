@@ -208,6 +208,7 @@ The CLI defaults to dry-run mode. Use dry-run first, then run again with `--writ
 
 8. Let the CLI own `skill.yaml` inference, then audit the result.
    - Treat `pif-skill-lib add ... --write` as the single source of truth for generated PiFlow metadata.
+   - The generator is the primary metadata producer, not the final semantic authority. Expect it to cover most fields automatically, then use agent judgment to validate and correct edge cases.
    - Do not reimplement field-by-field inference logic inside this skill. The generator is responsible for deriving `summary`, `tags`, `applicability`, `injection`, `risk_level`, `composition`, `selection`, and optional `usage` notes.
    - After write-mode generation, inspect every generated `skill-libraries/libs/<library-name>/<skill-id>/skill.yaml` and verify that the result is plausible against local source facts such as `SKILL.md`, source `skill.yaml`, `README`, `VERSION`, package manifests, examples, and nearby scripts.
    - If the generated metadata is obviously wrong or too aggressive, correct it conservatively in the generated file instead of inventing a parallel inference workflow.
@@ -217,6 +218,16 @@ The CLI defaults to dry-run mode. Use dry-run first, then run again with `--writ
      - keep third-party skills `selection.role=disabled` unless the user explicitly asked to enable them
      - choose the safer `risk_level` when a skill could plausibly fit more than one class
    - Write enriched metadata only to `skill-libraries/libs/<library-name>/<skill-id>/skill.yaml`; do not write generated PiFlow metadata back into the cloned source repository unless the user explicitly asks.
+   - Required agent audit policy:
+     - For PiFlow official libraries maintained by the team, the agent must review every generated skill metadata file, not just a sample.
+     - For third-party libraries, default to risk-based sampling unless the user requested stricter review or the batch shows systematic generator errors.
+     - For any library, upgrade to full agent review when skills are intended for default stage/workflow enablement or when `risk_level` is `code-write` or `external-tool`.
+   - Required agent audit checklist for reviewed files:
+     - confirm `summary` is complete natural language, not a broken fragment or preamble residue
+     - confirm `risk_level` matches the real tool behavior, especially around `Write`, `Edit`, network access, deployment, browsers, remote agents, or external services
+     - confirm `applicability` does not overclaim PiFlow stages, roles, frameworks, clouds, or domains that the source skill does not clearly support
+     - confirm `selection` and `composition` do not accidentally make a third-party skill primary or runnable-by-default
+     - if multiple samples show the same systematic error, fix the generator and regenerate rather than patching one file at a time
 
 9. Derive runtime wiring guidance only as recommendations unless the user asked to enable skills.
    - Use the generated metadata to explain likely wiring points, but do not add skills to `enabled` or `workflows` solely because the metadata suggests a fit.
