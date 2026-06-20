@@ -1,13 +1,13 @@
 ---
 title: piflow-skills plan_index
-版本: 1.0.5
-文档状态: 部分执行
-评审状态: 部分评审
-执行状态: 部分执行
+版本: 1.0.6
+文档状态: 全部执行
+评审状态: 全部评审
+执行状态: 全部执行
 创建时间: 2026-06-06 19:32
-修改时间: 2026-06-21 14:58
+修改时间: 2026-06-21 00:25
 作者: Codex
-评审轮次: 9
+评审轮次: 10
 评审结果: 通过
 ---
 
@@ -25,14 +25,14 @@ title: piflow-skills plan_index
 
 - 目标项目: `/Users/guodongzhuang/github/piflow-skills`
 - 文档目录: `/Users/guodongzhuang/github/piflow-skills/docs/plans`
-- 评审状态: 部分评审
-- 执行状态: 部分执行
-- 文档状态: 部分执行
+- 评审状态: 全部评审
+- 执行状态: 全部执行
+- 文档状态: 全部执行
 - 活跃修改点: 4
-- 已评审修改点: 3
-- 已执行修改点: 3
+- 已评审修改点: 4
+- 已执行修改点: 4
 - 部分执行修改点: 0
-- 未执行修改点: 1
+- 未执行修改点: 0
 
 ## 2. 来源文档
 
@@ -98,14 +98,15 @@ title: piflow-skills plan_index
 - 来源:
   - [prd-reviewer 优化方案](./20260621-1455-prd-reviewer-optimization.md)
 - 活跃状态: 活跃
-- 评审状态: 待评审
-- 执行状态: 未执行
+- 评审状态: 已评审
+- 执行状态: 已执行
 - 范围: `skills/prd-reviewer/SKILL.md` 的评审职责、输出分类、证据矩阵、自检闭环和 include/defer/block 规则，`skills/prd-reviewer/README.md` / `README.zh-CN.md` 的职责说明，以及与 `docs/stages/prd-review.md`、`prompts/prd-review-*.md`、后续 schema/script 增强之间的边界整理。
 - 当前结论: `prd-reviewer` 当前边界正确，已经避免直接改写 PRD，但更像轻量 readiness reviewer，缺少证据矩阵、阻断/建议/澄清/建议反写分类、跨 `prd-spec.md`、各端 PRD、`feature_list`、`stages.prd.outputs.features[]` 的一致性检查，以及通过前的自检闭环。推荐升级为“证据化 PRD 门闸 reviewer”，借鉴 `office-hours` 的前提挑战、反方评审和完整性/一致性/清晰度/范围/可行性五维检查，但不引入其创业孵化、人机访谈或 builder coaching 形态。
 - 依赖: 现有 `prd-spec-author -> prd-client-author -> prd-reviewer` 主链，`docs/stages/prd-review.md` 的 readiness gate 定义，`prompts/prd-review*.md` 的输出格式和阻断条件，PRD schema 对 `features[]`、`feature_list`、client PRD 的结构约束，以及后续 design/plan 阶段对 PRD 可执行性的依赖。
 - 验收标准: reviewer 能覆盖每个可见 feature 并给出证据来源；所有 blocking issues 都能定位到具体文档、字段或阶段输出；通过状态不存在未解决 blocker；defer 项必须给出原因、影响和重新进入条件；recommendation 不阻断流水线但可被 author 后续采纳；自检覆盖完整性、一致性、清晰度、范围控制和实现可行性五个维度。
 - 状态记录:
   - 2026-06-21 14:55: 根据用户要求，按与 `prd-spec-author`、`prd-client-author` 相同的标准完成 `prd-reviewer` 评审并新增方案文档。当前仅完成文档归档和索引登记，尚未修改 skill 本体，因此状态为 `未执行`、`待评审`。
+  - 2026-06-21 00:25: 已执行。`prd-reviewer` 已升级为证据化 PRD 门闸 reviewer；补充 evidence matrix、blocking/recommendation/clarification 分级、跨产物一致性检查、review self-check 和端特定 checklist；README、agent 元数据、版本与 changelog 已同步。验证通过: `rg` 关键规则检查、`git diff --check`。
 
 ## 4. 矛盾与去重处理
 
@@ -216,3 +217,14 @@ title: piflow-skills plan_index
 - 修改:
   - 新增 PS-004 修改点。
   - 更新来源文档、汇总计数、索引总状态和矛盾处理记录。
+
+### 第 10 轮执行复核
+
+- 结论: 通过
+- 发现:
+  - PS-004 已落地到 `skills/prd-reviewer` 的 `SKILL.md`、README、agent 元数据、版本和 changelog。
+  - 本轮实现保持 reviewer 只读门闸边界，没有把 reviewer 变成 PRD author 或正文修复器。
+  - 当前 `docs/plans/` 下 4 个活跃修改点均已评审且已执行。
+- 修改:
+  - 将 PS-004 更新为 `已评审`、`已执行`。
+  - 更新整体状态与计数为全部评审、全部执行。

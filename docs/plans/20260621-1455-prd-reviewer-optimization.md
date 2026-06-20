@@ -1,14 +1,14 @@
 ---
 title: prd-reviewer 优化方案
 版本: 1.0.0
-文档状态: 草稿
-代码实现: 未执行
-实现文档版本: 无
+文档状态: 已执行
+代码实现: 已执行
+实现文档版本: 0.2.0
 创建时间: 2026-06-21 14:55
-修改时间: 2026-06-21 14:55
+修改时间: 2026-06-21 00:25
 作者: Codex
-评审轮次: 0
-评审结果: 待评审
+评审轮次: 1
+评审结果: 通过
 来源上下文:
   - 用户要求按与 prd-spec-author、prd-client-author 类似的标准评审 prd-reviewer，并更新 piflow 方案文档
   - skills/prd-reviewer/SKILL.md
@@ -401,10 +401,15 @@ title: prd-reviewer 优化方案
 
 ### 第 1 轮评审
 
-- 结论: 待评审
+- 结论: 通过，方案已执行。
 - 发现:
-  - 当前 `prd-reviewer` 的职责边界正确，但证据化、阻塞分级和自检闭环不足。
-  - `office-hours` 的 premise challenge 与 adversarial review loop 可借鉴到 reviewer 内部质量检查。
-  - 不建议让 reviewer 修改 PRD 正文，避免破坏 author/reviewer 分工。
+  - 当前 `prd-reviewer` 的职责边界已保留，但 skill 真源已经升级为证据化 PRD 门闸 reviewer。
+  - `SKILL.md` 已补入 evidence matrix、blocking/recommendation/clarification 分级、跨产物一致性检查、端特定 checklist 和 review self-check。
+  - `office-hours` 的 premise challenge 与 adversarial review loop 已以 reviewer 内部质量检查的形式吸收，没有引入 authoring 或人工辅导职责。
+  - 中英文 README、`agents/openai.yaml`、`VERSION` 和 `CHANGELOG.md` 已同步，技能真源与对外说明保持一致。
 - 修改:
-  - 新增方案文档。
+  - 将代码实现状态更新为已执行，`实现文档版本` 更新为 `0.2.0`。
+- 验证:
+  - `rg -n "Evidence Matrix|Classification Rules|Consistency Rules|Self-Check Loop|Target-Specific Checklist" skills/prd-reviewer/SKILL.md`
+  - `rg -n "evidence-backed blockers|review self-check|带证据的 canonical" skills/prd-reviewer/README.md skills/prd-reviewer/README.zh-CN.md`
+  - `git diff --check`

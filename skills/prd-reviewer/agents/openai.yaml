@@ -1,7 +1,7 @@
 interface:
   display_name: "PRD Reviewer"
-  short_description: "评审单端 PiFlow PRD，并输出结构化 prd-review JSON"
-  default_prompt: "Use $prd-reviewer to review one PiFlow per-client PRD file, produce the canonical output-stages/prd-review/prd-review-<client_target>.json result, separate blocking issues from recommendations, and score implementation readiness based on the written PRD."
+  short_description: "评审单端 PiFlow PRD，并输出带证据的结构化 prd-review JSON"
+  default_prompt: "Use $prd-reviewer to review one PiFlow per-client PRD file, produce the canonical output-stages/prd-review/prd-review-<client_target>.json result, cite evidence for blockers, separate blockers from recommendations or clarifications, and self-check the review before finishing."
 
 policy:
   allow_implicit_invocation: true

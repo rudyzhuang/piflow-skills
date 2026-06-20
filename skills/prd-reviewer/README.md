@@ -8,6 +8,9 @@ It is designed for the PRD review stage:
 
 - read `prd-spec.md`, one target PRD JSON, and the matching feature list
 - assess scope clarity, feature decomposition, acceptance quality, edge/failure coverage, and implementation readiness
+- require evidence-backed blockers instead of subjective gate decisions
+- check consistency across shared PRD, target PRD, feature list, and mirrored feature references
+- run a review self-check before finishing
 - emit structured blocking issues, recommendations, feature assessments, and review scores
 - keep the result ready for downstream PiFlow review merging
 
@@ -38,11 +41,11 @@ node ../install.mjs prd-reviewer --copy
 ## Usage
 
 ```text
-Use $prd-reviewer to review the backend PRD and write output-stages/prd-review/prd-review-backend.json with blocking issues, feature assessments, and readiness scores.
+Use $prd-reviewer to review the backend PRD, cite concrete evidence for blockers, separate recommendations from gate failures, and write output-stages/prd-review/prd-review-backend.json.
 ```
 
 ```text
-使用 prd-reviewer，评审当前端 PRD，输出 canonical 的 prd-review-<client_target>.json，不要改 PRD 正文。
+使用 prd-reviewer，评审当前端 PRD，输出带证据的 canonical prd-review-<client_target>.json，不要改 PRD 正文。
 ```
 
 ## Files

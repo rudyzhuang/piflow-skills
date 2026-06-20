@@ -8,6 +8,9 @@ English documentation: [README.md](./README.md).
 
 - 读取 `prd-spec.md`、单端 PRD JSON 和对应 feature list
 - 评估范围清晰度、功能拆解、验收标准质量、边界/失败覆盖和实现就绪度
+- 要求 blocker 必须有具体证据，而不是主观卡点
+- 主动核对 shared PRD、端内 PRD、feature list 和镜像 feature 引用的一致性
+- 在结束前对 review JSON 执行自检闭环
 - 产出结构化的 blocking issues、recommendations、feature assessments 和 review scores
 - 保持结果可以被后续 PiFlow review merge 直接消费
 
@@ -38,11 +41,11 @@ node ../install.mjs prd-reviewer --copy
 ## 用法
 
 ```text
-使用 prd-reviewer，评审当前端 PRD，输出 canonical 的 prd-review-<client_target>.json，不要改 PRD 正文。
+使用 prd-reviewer，评审当前端 PRD，输出带证据的 canonical prd-review-<client_target>.json，不要改 PRD 正文。
 ```
 
 ```text
-Use $prd-reviewer to review the backend PRD and write output-stages/prd-review/prd-review-backend.json with blocking issues, feature assessments, and readiness scores.
+Use $prd-reviewer to review the backend PRD, cite concrete evidence for blockers, separate recommendations from gate failures, and write output-stages/prd-review/prd-review-backend.json.
 ```
 
 ## 文件
