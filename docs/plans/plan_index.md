@@ -1,13 +1,13 @@
 ---
 title: piflow-skills plan_index
-版本: 1.0.0
-文档状态: 全部执行
-评审状态: 全部评审
-执行状态: 全部执行
+版本: 1.0.3
+文档状态: 部分执行
+评审状态: 部分评审
+执行状态: 部分执行
 创建时间: 2026-06-06 19:32
-修改时间: 2026-06-06 20:11
+修改时间: 2026-06-21 14:48
 作者: Codex
-评审轮次: 2
+评审轮次: 5
 评审结果: 通过
 ---
 
@@ -25,18 +25,20 @@ title: piflow-skills plan_index
 
 - 目标项目: `/Users/guodongzhuang/github/piflow-skills`
 - 文档目录: `/Users/guodongzhuang/github/piflow-skills/docs/plans`
-- 评审状态: 全部评审
-- 执行状态: 全部执行
-- 文档状态: 全部执行
-- 活跃修改点: 1
+- 评审状态: 部分评审
+- 执行状态: 部分执行
+- 文档状态: 部分执行
+- 活跃修改点: 3
 - 已评审修改点: 1
 - 已执行修改点: 1
 - 部分执行修改点: 0
-- 未执行修改点: 0
+- 未执行修改点: 2
 
 ## 2. 来源文档
 
 - [req-reviewer 评审阶段 freeform_content 补全与来源标记方案](./20260606-1932-req-reviewer-freeform-content.md)
+- [prd-spec-author 优化方案](./20260621-1410-prd-spec-author-optimization.md)
+- [prd-client-author 优化方案](./20260621-1435-prd-client-author-optimization.md)
 
 ### 未纳入文档
 
@@ -60,12 +62,45 @@ title: piflow-skills plan_index
   - 2026-06-06 19:47: 已执行。`req-reviewer` 已补充 freeform 必检、补齐和来源判定规则；`req-maker` draft/export 契约已同步；`export-req-md.mjs` 已兼容 `user/ai/from_user/from_ai` 并渲染 freeform 字段；新增 `self-test-export-freeform.mjs`。验证通过: `node --check` 两个脚本、`self-test-export-freeform`、`git diff --check`。
   - 2026-06-06 20:11: 第 3 轮补充评审和执行复核通过。确认 `freeform_content/freeform_source` 是 `req.md` 用户可读字段，不进入 `req.yaml`；已补充 piflow 同步链路的 prompt 约束、确定性清洗守卫和回归测试。验证通过: `node --check`、`self-test-req-sync`、`self-test-export-freeform`、`git diff --check`。
 
+### PS-002 prd-spec-author 从增量补全器升级为共享 PRD 总源作者器
+
+- 来源:
+  - [prd-spec-author 优化方案](./20260621-1410-prd-spec-author-optimization.md)
+- 活跃状态: 活跃
+- 评审状态: 待评审
+- 执行状态: 未执行
+- 范围: `skills/prd-spec-author/SKILL.md` 的职责定义、保留策略、最低输出契约与自检闭环，`skills/prd-spec-author/README.md` / `README.zh-CN.md` 的说明文案，以及后续可能新增的 `prd-spec-reviewer` skill 与 `templates/skills-template.yaml` 的 reviewer wiring。
+- 当前结论: `prd-spec-author` 当前更像共享 PRD 总源的增量补全器，缺少 requirement 到 PRD 的来源覆盖检查、质量复审闭环、冲突纠正规则和轻量 traceability 设计。推荐先强化官方 skill 本体，引入 `req-maker` / `req-reviewer` 中已验证有效的 coverage loop、quality loop 和“以上游真源为准”的修订机制，同时扩充 `prd-spec.md` 的最低契约，使其能表达用户流程、角色权限、跨端契约、异常处理和验收口径。`gstack/spec` 与 `superpowers-zh/writing-plans` 适合借鉴方法，不建议直接并入 `prd` 阶段默认主链。
+- 依赖: 现有 `prd` 阶段 `req-maker -> req-reviewer -> prd-spec-author -> prd-client-author -> prd-reviewer` 主链，`templates/skills-template.yaml` 中 `prd` 阶段默认 skill 选择，`docs/stages/prd.md` 对 Agent-A 职责和总源契约的说明，`canonical-req.json` 持续作为上游业务真源。
+- 验收标准: `prd-spec-author` 能在保留有效内容的同时修正与 requirement 真源冲突的旧内容；共享 PRD 总源在通过时至少完整覆盖产品意图、客户端目标、核心功能、范围与非目标、完整性覆盖、部署架构；共享 PRD 总源可清晰表达关键用户流程、跨端边界和异常覆盖；若 requirement 可追踪，PRD feature 至少保留轻量级来源映射；默认主链仍只依赖官方 skill 即可稳定运行。
+- 状态记录:
+  - 2026-06-21 14:10: 根据用户对 `prd-spec-author` 在 PiFlow 流水线中职责的评审要求新增方案文档。当前仅完成方案归档和索引登记，尚未修改 skill 本体，因此状态为 `未执行`、`待评审`。
+
+### PS-003 prd-client-author 从字段补全器升级为端内 PRD 合同作者器
+
+- 来源:
+  - [prd-client-author 优化方案](./20260621-1435-prd-client-author-optimization.md)
+- 活跃状态: 活跃
+- 评审状态: 待评审
+- 执行状态: 未执行
+- 范围: `skills/prd-client-author/SKILL.md` 的端内职责定义、shared feature 投影规则、端内质量复审、feature_list 同步规则和保留策略，`skills/prd-client-author/README.md` / `README.zh-CN.md` 的职责说明，以及与 `prompts/prd-client-author.md`、`prompts/prd-author-shared.md`、`prompts/admin-ui-shell.md` 之间的 authoring contract 边界整理。
+- 当前结论: `prd-client-author` 当前已具备单端写入、字段补全和部分端特定规则，但整体更像“按端补字段的 Agent-B”，还不足以稳定承担“把 shared PRD 落成端内可执行合同”的角色。主要缺口在 shared feature 到当前端 feature 的投影规则、已有非空但语义过期字段的纠正规则、端内 feature completeness 闭环、以及 `feature_list` 作为 JSON 确定性投影的定义。结构上不建议当前按 client 硬拆成多个并行主 skill；推荐保留一个主 `prd-client-author` skill，先把共享 authoring contract 收敛进 skill，再对 `admin`、`backend` 这类高差异端按需引入 companion skill 或附录增强，由 reviewer 关注更高层的问题。
+- 依赖: 现有 `prd-spec-author -> prd-client-author -> prd-reviewer` 主链，`docs/stages/prd.md` 对 Agent-B 的单端职责、feature_list fallback、deploy/build/config 同步和 mobile tech stack 规范化说明，当前各端模板与 prompt 中已有的 deploy/services、admin shell、backend tech_stack 和端字段格式契约。
+- 验收标准: `prd-client-author` 能明确决定当前端应承接哪些 shared feature；每个端内 feature 都能体现当前端视角的合同描述而不是简单复写 shared summary；端特定字段不混用；`feature_list` 与 JSON 保持一致性投影；已有非空但与 shared PRD 或当前端 contract 冲突的字段会被修正；默认主链仍只依赖官方 skill 即可稳定运行。
+- 状态记录:
+  - 2026-06-21 14:35: 根据用户要求，按与 `prd-spec-author` 相同的标准完成 `prd-client-author` 评审并新增方案文档。当前仅完成文档归档和索引登记，尚未修改 skill 本体，因此状态为 `未执行`、`待评审`。
+
 ## 4. 矛盾与去重处理
 
 - `req-maker` 旧 export 规则与本方案的关系: 旧规则说明 `freeform_content` 不作为独立字段渲染，只用于 description 兜底；本方案要求项目侧评审后的 `req.md` 显式保留 freeform 字段，用于后续 AI 评审和追溯。最终结论是 draft/评审态 req.md 应显式渲染，Backend export 可先兼容旧输入，但应同步渲染以避免生成与评审规则不一致。
 - `user/ai` 与 `from_user/from_ai` 的关系: 旧枚举 `user/ai` 是来源类型，新枚举 `from_user/from_ai` 更明确表达来源事实。短期保持兼容，输出和评审推荐使用 `from_user/from_ai`。
 - 项目级 `freeform_content` 与 `## 项目简介 *` 的关系: 项目简介描述产品定位和目标；`## 核心功能 *` 头部的项目级 freeform 汇总功能集合和整体能力边界。二者可相互呼应，但不应机械重复。
 - `req.md` 与 `req.yaml` 的字段边界: `req.md` 保留 `freeform_content/freeform_source` 给用户阅读、确认和评审；`req.yaml` 不保存这些字段，只保存流水线消费的结构化字段。
+- `prd-spec-author` 的“保留非空内容”与“以上游真源为准”的关系: 旧策略偏重避免误删，适合守住文档稳定性；新方案要求保留非冲突有效内容，但当 `canonical-req.json` 与旧 `prd-spec.md` 冲突时，必须以 requirement 真源纠正旧内容。最终结论是保留策略应升级为“保留有效内容”，而不是继续限制为“只补空白”。
+- 第三方 skill 并入 `prd` 阶段的取舍: `gstack/spec` 和 `superpowers-zh/writing-plans` 都能提供方法参考，但它们的定位分别偏人工 spec 整理和实现计划编写，不理解 PiFlow `prd-spec.md` 的下游契约。最终结论是当前阶段只借鉴方法，不把第三方 skill 直接设为默认 stage skill。
+- `prd-client-author` 与 `prd-reviewer` 的边界: 当前 reviewer 已经覆盖 target responsibility、feature decomposition、acceptance、edge/failure 和 implementation readiness，但 author skill 仍缺少足够强的自修订闭环。最终结论是 reviewer 应关注 readiness 和 blocker，而不是长期替 author 补基础字段和 feature_list 漂移问题。
+- `prd-client-author` skill 与 prompt/附录真源的关系: 当前 deploy/services、backend tech_stack、admin ProLayout 等关键 authoring contract 分散在 `SKILL.md`、`prd-client-author.md`、`prd-author-shared.md` 和 `admin-ui-shell.md`。最终结论是 skill 应成为通用 authoring 规则主真源，prompt 和附录只保留端特定补充。
+- `prd-client-author` 是否按 client 拆 skill: 当前 website/admin/backend/mobile 虽有明显差异，但共享 authoring 生命周期和主 contract 仍占大头。最终结论是不拆多个并行主 skill，而是保留一个主 skill，并为 `admin`、`backend` 预留 companion skill 扩展位。
 
 ## 5. 评审记录
 
@@ -100,3 +135,33 @@ title: piflow-skills plan_index
   - 更新 PS-001 当前结论、依赖、验收标准和矛盾处理。
   - 标记方案已补充第 3 轮评审结论。
   - 已执行 piflow 同步链路清洗守卫，并完成回归验证。
+
+### 第 4 轮索引更新
+
+- 结论: 通过
+- 发现:
+  - 新增 `prd-spec-author` 优化方案文档后，`docs/plans/` 已不再只有已执行项，因此索引总状态需要从“全部执行 / 全部评审”调整为“部分执行 / 部分评审”。
+  - 新方案当前只是归档与索引登记，尚未落地到 skill 本体，应该明确标记为 `待评审`、`未执行`。
+- 修改:
+  - 新增 PS-002 修改点。
+  - 更新来源文档、汇总计数、索引总状态和矛盾处理记录。
+
+### 第 5 轮索引更新
+
+- 结论: 通过
+- 发现:
+  - `prd-client-author` 的优化评审已形成独立方案，且性质与 `prd-spec-author` 类似，同样属于“已归档、未执行”的活跃修改点。
+  - 新方案加入后，当前 `docs/plans/` 下共有 3 个活跃修改点，其中 2 个仍待评审、未执行。
+- 修改:
+  - 新增 PS-003 修改点。
+  - 更新来源文档、汇总计数和矛盾处理记录。
+
+### 第 6 轮方案细化
+
+- 结论: 通过
+- 发现:
+  - `prd-client-author` 是否应按 client 拆成多个 skill 已有明确方向：当前不建议拆主 skill。
+  - 更合适的路径是“单主 skill + 端特定 companion/附录增强”，其中 `admin`、`backend` 是最值得优先观察的高差异端。
+- 修改:
+  - 更新 PS-003 当前结论与矛盾处理，写明不拆多个并行主 skill 的决策。
+  - 补充 `prd-client-author` 方案中的 companion skill 结构设计。
