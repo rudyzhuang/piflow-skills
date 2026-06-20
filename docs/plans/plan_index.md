@@ -1,13 +1,13 @@
 ---
 title: piflow-skills plan_index
-版本: 1.0.4
-文档状态: 全部执行
-评审状态: 全部评审
-执行状态: 全部执行
+版本: 1.0.5
+文档状态: 部分执行
+评审状态: 部分评审
+执行状态: 部分执行
 创建时间: 2026-06-06 19:32
-修改时间: 2026-06-21 00:25
+修改时间: 2026-06-21 14:58
 作者: Codex
-评审轮次: 7
+评审轮次: 9
 评审结果: 通过
 ---
 
@@ -25,20 +25,21 @@ title: piflow-skills plan_index
 
 - 目标项目: `/Users/guodongzhuang/github/piflow-skills`
 - 文档目录: `/Users/guodongzhuang/github/piflow-skills/docs/plans`
-- 评审状态: 全部评审
-- 执行状态: 全部执行
-- 文档状态: 全部执行
-- 活跃修改点: 3
+- 评审状态: 部分评审
+- 执行状态: 部分执行
+- 文档状态: 部分执行
+- 活跃修改点: 4
 - 已评审修改点: 3
 - 已执行修改点: 3
 - 部分执行修改点: 0
-- 未执行修改点: 0
+- 未执行修改点: 1
 
 ## 2. 来源文档
 
 - [req-reviewer 评审阶段 freeform_content 补全与来源标记方案](./20260606-1932-req-reviewer-freeform-content.md)
 - [prd-spec-author 优化方案](./20260621-1410-prd-spec-author-optimization.md)
 - [prd-client-author 优化方案](./20260621-1435-prd-client-author-optimization.md)
+- [prd-reviewer 优化方案](./20260621-1455-prd-reviewer-optimization.md)
 
 ### 未纳入文档
 
@@ -92,6 +93,20 @@ title: piflow-skills plan_index
   - 2026-06-21 14:35: 根据用户要求，按与 `prd-spec-author` 相同的标准完成 `prd-client-author` 评审并新增方案文档。当前仅完成文档归档和索引登记，尚未修改 skill 本体，因此状态为 `未执行`、`待评审`。
   - 2026-06-21 00:25: 已执行。`prd-client-author` 已升级为端内 PRD 合同作者器；补充 shared feature 投影规则、端特定字段边界、端内完整性复审和 `feature_list` 确定性投影；README、agent 元数据、版本与 changelog 已同步。验证通过: `rg` 关键规则检查、`git diff --check`。
 
+### PS-004 prd-reviewer 从轻量 readiness reviewer 升级为证据化 PRD 门闸 reviewer
+
+- 来源:
+  - [prd-reviewer 优化方案](./20260621-1455-prd-reviewer-optimization.md)
+- 活跃状态: 活跃
+- 评审状态: 待评审
+- 执行状态: 未执行
+- 范围: `skills/prd-reviewer/SKILL.md` 的评审职责、输出分类、证据矩阵、自检闭环和 include/defer/block 规则，`skills/prd-reviewer/README.md` / `README.zh-CN.md` 的职责说明，以及与 `docs/stages/prd-review.md`、`prompts/prd-review-*.md`、后续 schema/script 增强之间的边界整理。
+- 当前结论: `prd-reviewer` 当前边界正确，已经避免直接改写 PRD，但更像轻量 readiness reviewer，缺少证据矩阵、阻断/建议/澄清/建议反写分类、跨 `prd-spec.md`、各端 PRD、`feature_list`、`stages.prd.outputs.features[]` 的一致性检查，以及通过前的自检闭环。推荐升级为“证据化 PRD 门闸 reviewer”，借鉴 `office-hours` 的前提挑战、反方评审和完整性/一致性/清晰度/范围/可行性五维检查，但不引入其创业孵化、人机访谈或 builder coaching 形态。
+- 依赖: 现有 `prd-spec-author -> prd-client-author -> prd-reviewer` 主链，`docs/stages/prd-review.md` 的 readiness gate 定义，`prompts/prd-review*.md` 的输出格式和阻断条件，PRD schema 对 `features[]`、`feature_list`、client PRD 的结构约束，以及后续 design/plan 阶段对 PRD 可执行性的依赖。
+- 验收标准: reviewer 能覆盖每个可见 feature 并给出证据来源；所有 blocking issues 都能定位到具体文档、字段或阶段输出；通过状态不存在未解决 blocker；defer 项必须给出原因、影响和重新进入条件；recommendation 不阻断流水线但可被 author 后续采纳；自检覆盖完整性、一致性、清晰度、范围控制和实现可行性五个维度。
+- 状态记录:
+  - 2026-06-21 14:55: 根据用户要求，按与 `prd-spec-author`、`prd-client-author` 相同的标准完成 `prd-reviewer` 评审并新增方案文档。当前仅完成文档归档和索引登记，尚未修改 skill 本体，因此状态为 `未执行`、`待评审`。
+
 ## 4. 矛盾与去重处理
 
 - `req-maker` 旧 export 规则与本方案的关系: 旧规则说明 `freeform_content` 不作为独立字段渲染，只用于 description 兜底；本方案要求项目侧评审后的 `req.md` 显式保留 freeform 字段，用于后续 AI 评审和追溯。最终结论是 draft/评审态 req.md 应显式渲染，Backend export 可先兼容旧输入，但应同步渲染以避免生成与评审规则不一致。
@@ -103,6 +118,9 @@ title: piflow-skills plan_index
 - `prd-client-author` 与 `prd-reviewer` 的边界: 当前 reviewer 已经覆盖 target responsibility、feature decomposition、acceptance、edge/failure 和 implementation readiness，但 author skill 仍缺少足够强的自修订闭环。最终结论是 reviewer 应关注 readiness 和 blocker，而不是长期替 author 补基础字段和 feature_list 漂移问题。
 - `prd-client-author` skill 与 prompt/附录真源的关系: 当前 deploy/services、backend tech_stack、admin ProLayout 等关键 authoring contract 分散在 `SKILL.md`、`prd-client-author.md`、`prd-author-shared.md` 和 `admin-ui-shell.md`。最终结论是 skill 应成为通用 authoring 规则主真源，prompt 和附录只保留端特定补充。
 - `prd-client-author` 是否按 client 拆 skill: 当前 website/admin/backend/mobile 虽有明显差异，但共享 authoring 生命周期和主 contract 仍占大头。最终结论是不拆多个并行主 skill，而是保留一个主 skill，并为 `admin`、`backend` 预留 companion skill 扩展位。
+- `prd-reviewer` 与 author skill 的边界: reviewer 不应直接改写 `prd-spec.md` 或端内 PRD，也不应长期替 author 补基础字段。最终结论是 reviewer 输出证据化阻断、建议、澄清和建议反写项，由 author skill 或流水线回写机制处理文档修订。
+- `office-hours` 可借鉴范围: 可借鉴其前提挑战、反方评审、风险显性化和多维度完整性检查；不引入其 startup/builder coaching、人机访谈、用户实时交互或商业化孵化流程，避免偏离 PiFlow PRD 阶段的自动化门闸职责。
+- 第三方 reviewer skill 的取舍: 当前仍保留一个官方 `prd-reviewer` 作为默认门闸，不把 `office-hours`、`gstack/spec` 或其他第三方 skill 直接并入默认主链；第三方方法只作为评审策略来源。
 
 ## 5. 评审记录
 
@@ -187,3 +205,14 @@ title: piflow-skills plan_index
   - 本轮验证以规则关键字检查和 `git diff --check` 为主，未运行运行态流水线测试，因为本次修改仅涉及 skill 文档与元数据。
 - 修改:
   - 回写两份源方案文档的 `代码实现`、`实现文档版本`、`评审结果` 与验证记录。
+
+### 第 9 轮索引更新
+
+- 结论: 通过
+- 发现:
+  - `prd-reviewer` 的优化评审已形成独立方案，属于“已归档、待评审、未执行”的新增活跃修改点。
+  - 新方案加入后，当前 `docs/plans/` 下共有 4 个活跃修改点，其中 3 个已评审且已执行，1 个仍待评审、未执行。
+  - `office-hours` 对 PRD 完整化最有价值的是前提挑战和反方评审方法，不适合直接替代 PiFlow 官方 reviewer。
+- 修改:
+  - 新增 PS-004 修改点。
+  - 更新来源文档、汇总计数、索引总状态和矛盾处理记录。
