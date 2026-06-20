@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.9 - 2026-06-20
+
+- 收敛 add-skill-lib 元数据推断职责并调整运行时接线说明
+- Changed: 1 file(s).
+- Areas: skills(1).
+- Hints: documentation.
+
 ## 0.1.8 - 2026-06-17
 
 - 更新 piflow skills 文档与提交推送流程

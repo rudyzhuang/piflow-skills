@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.11 - 2026-06-20
+
+- 收敛 add-skill-lib 元数据推断职责并调整运行时接线说明
+- Changed: 1 file(s).
+- Areas: skills(1).
+- Hints: documentation.
+
 ## 0.1.10 - 2026-06-20
 
 - 新增 PRD 产出与评审相关 skill 并更新中英文技能索引
