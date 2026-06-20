@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.10 - 2026-06-20
+
+- 新增 PRD 产出与评审相关 skill 并更新中英文技能索引
+- Changed: 23 file(s).
+- Areas: skills(21), .(2).
+- Hints: documentation.
+- Added: 21, Modified: 2, Deleted: 0.
+
 ## 0.1.9 - 2026-06-20
 
 - 新增 design-system skill 并更新中英文技能索引

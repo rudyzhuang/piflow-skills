@@ -1,0 +1,7 @@
+interface:
+  display_name: "PRD Spec Author"
+  short_description: "从结构化需求生成并增量补全 PiFlow 共享 PRD 总源文档"
+  default_prompt: "Use $prd-spec-author to update output-stages/prd/prd-spec.md from canonical req or inputs/req.yaml, preserve existing non-empty sections, and keep feature IDs, scope, completeness, and deployment architecture consistent."
+
+policy:
+  allow_implicit_invocation: true

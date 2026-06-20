@@ -14,6 +14,9 @@
 | --- | --- | --- |
 | `req-maker` | 从用户提示、文档、规格说明、截图、Figma Make `.make` 本地包或 PiFlow `req-md-export` 数据中提炼需求，生成中文 PiFlow 风格 `inputs/req.md`，并执行评审循环。 | `skills/req-maker/SKILL.md`, `skills/req-maker/assets/req-template.md`, `skills/req-maker/scripts/figma-make-summary.mjs`, `skills/req-maker/scripts/export-req-md.mjs` |
 | `req-reviewer` | 评审并修订已有中文需求文档，尤其是 `inputs/req.md`，直到通过来源覆盖、质量、一致性、feature ID、多客户端契约、兼容性和可测试性检查。 | `skills/req-reviewer/SKILL.md`, `skills/req-reviewer/agents/openai.yaml` |
+| `prd-spec-author` | 根据结构化需求真源编写或增量修订 PiFlow 共享 PRD 总源文档 `output-stages/prd/prd-spec.md`，并保留已有非空章节、客户端目标、功能表、范围边界和部署架构表述。 | `skills/prd-spec-author/SKILL.md`, `skills/prd-spec-author/agents/openai.yaml` |
+| `prd-client-author` | 根据 `output-stages/prd/prd-spec.md` 生成单个 PiFlow 分端 PRD JSON 及对应 `feature_list-<client_target>.md`，保持端内 schema 字段、`feature_id`、范围和完整性一致。 | `skills/prd-client-author/SKILL.md`, `skills/prd-client-author/agents/openai.yaml` |
+| `prd-reviewer` | 评审单个 PiFlow 分端 PRD 输出，并在进入 design 前生成 canonical `output-stages/prd-review/prd-review-<client_target>.json`，包含阻塞问题、功能评估、澄清候选和就绪度评分。 | `skills/prd-reviewer/SKILL.md`, `skills/prd-reviewer/agents/openai.yaml` |
 | `plan-doc-maker` | 在项目本地 `docs/plans/` 下生成已评审的中文方案文档，并维护去重后的 `plan_index.md` 执行索引。 | `skills/plan-doc-maker/SKILL.md`, `skills/plan-doc-maker/assets/plan-template.md`, `skills/plan-doc-maker/agents/openai.yaml` |
 | `plan-executor` | 执行用户方案、源方案文档或 `docs/plans/plan_index.md` 中的修改点，完成实现、评审、验证、状态回写、提交和推送。 | `skills/plan-executor/SKILL.md`, `skills/plan-executor/agents/openai.yaml` |
 | `design-system` | 在 PiFlow `design` 阶段，把 OpenDesign 作为内置主参考库，并将选中的 pack、补充参考和品牌方向归一化为项目级设计系统，沉淀成可复用的 token、布局原则、组件规则和 guardrails。 | `skills/design-system/SKILL.md`, `skills/design-system/scripts/opendesign-design-system.mjs`, `skills/design-system/agents/openai.yaml` |
