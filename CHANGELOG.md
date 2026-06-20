@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.9 - 2026-06-20
+
+- 新增 design-system skill 并更新中英文技能索引
+- Changed: 10 file(s).
+- Areas: skills(8), .(2).
+- Hints: documentation.
+- Added: 8, Modified: 2, Deleted: 0.
+
 ## 0.1.8 - 2026-06-19
 
 - 升级 PiFlow 失败修复 skill，并新增 recovery 拦截监督 skill

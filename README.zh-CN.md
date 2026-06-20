@@ -16,6 +16,7 @@
 | `req-reviewer` | 评审并修订已有中文需求文档，尤其是 `inputs/req.md`，直到通过来源覆盖、质量、一致性、feature ID、多客户端契约、兼容性和可测试性检查。 | `skills/req-reviewer/SKILL.md`, `skills/req-reviewer/agents/openai.yaml` |
 | `plan-doc-maker` | 在项目本地 `docs/plans/` 下生成已评审的中文方案文档，并维护去重后的 `plan_index.md` 执行索引。 | `skills/plan-doc-maker/SKILL.md`, `skills/plan-doc-maker/assets/plan-template.md`, `skills/plan-doc-maker/agents/openai.yaml` |
 | `plan-executor` | 执行用户方案、源方案文档或 `docs/plans/plan_index.md` 中的修改点，完成实现、评审、验证、状态回写、提交和推送。 | `skills/plan-executor/SKILL.md`, `skills/plan-executor/agents/openai.yaml` |
+| `design-system` | 在 PiFlow `design` 阶段，把 OpenDesign 作为内置主参考库，并将选中的 pack、补充参考和品牌方向归一化为项目级设计系统，沉淀成可复用的 token、布局原则、组件规则和 guardrails。 | `skills/design-system/SKILL.md`, `skills/design-system/scripts/opendesign-design-system.mjs`, `skills/design-system/agents/openai.yaml` |
 | `commit-push` | 将“提交并推送”固化为可重复 Git 流程：检查变更、归纳提交意图、可选升版、commit、push，并可选创建缺失的 GitHub remote。 | `skills/commit-push/SKILL.md`, `skills/commit-push/scripts/commit_push.cjs`, `skills/commit-push/scripts/github_remote.cjs` |
 | `piflow-status-inspector` | 读取当前项目 `output-stages/stages.json`，汇总 PiFlow 运行状态、stage 进度、运行时间、失败次数、recovery 次数和当前 stage 子任务完成情况。 | `skills/piflow-status-inspector/SKILL.md`, `skills/piflow-status-inspector/scripts/project_status.cjs`, `skills/piflow-status-inspector/agents/openai.yaml` |
 | `add-skill-lib` | 将 Git 托管的 skill library clone 到 PiFlow 的 `skill-libraries/repos/<library-name>`，把元数据写入 `skill-libraries/libs/<library-name>`，登记到 `skill-libraries/libraries.yaml` 并暴露 skills。 | `skills/add-skill-lib/SKILL.md`, `skills/add-skill-lib/agents/openai.yaml` |
@@ -189,6 +190,15 @@ node install.mjs --all-skills
       CHANGELOG.md
       install.mjs
       install.py
+      agents/
+    design-system/
+      SKILL.md
+      README.md
+      README.zh-CN.md
+      VERSION
+      CHANGELOG.md
+      install.mjs
+      scripts/
       agents/
     commit-push/
       SKILL.md

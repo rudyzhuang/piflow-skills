@@ -1,0 +1,7 @@
+interface:
+  display_name: "Design System"
+  short_description: "在 PiFlow design 阶段先用 OpenDesign，再扩展到其他参考，整理项目级设计系统"
+  default_prompt: "Use $design-system to search OpenDesign first as the built-in primary library, choose a primary pack, and turn this PRD, brand direction, and any necessary fallback references into a project-level design system for the PiFlow design stage, then explain the recommended role, units, and guardrails."
+
+policy:
+  allow_implicit_invocation: true
