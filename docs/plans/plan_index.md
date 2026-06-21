@@ -1,13 +1,13 @@
 ---
 title: piflow-skills plan_index
-版本: 1.0.6
-文档状态: 全部执行
+版本: 1.0.7
+文档状态: 部分执行
 评审状态: 全部评审
-执行状态: 全部执行
+执行状态: 部分执行
 创建时间: 2026-06-06 19:32
-修改时间: 2026-06-21 15:06
+修改时间: 2026-06-21 16:45
 作者: Codex
-评审轮次: 10
+评审轮次: 11
 评审结果: 通过
 ---
 
@@ -26,12 +26,12 @@ title: piflow-skills plan_index
 - 目标项目: `/Users/guodongzhuang/github/piflow-skills`
 - 文档目录: `/Users/guodongzhuang/github/piflow-skills/docs/plans`
 - 评审状态: 全部评审
-- 执行状态: 全部执行
-- 文档状态: 全部执行
-- 活跃修改点: 4
-- 已评审修改点: 4
+- 执行状态: 部分执行
+- 文档状态: 部分执行
+- 活跃修改点: 5
+- 已评审修改点: 5
 - 已执行修改点: 4
-- 部分执行修改点: 0
+- 部分执行修改点: 1
 - 未执行修改点: 0
 
 ## 2. 来源文档
@@ -40,6 +40,7 @@ title: piflow-skills plan_index
 - [prd-spec-author 优化方案](./20260621-1410-prd-spec-author-optimization.md)
 - [prd-client-author 优化方案](./20260621-1435-prd-client-author-optimization.md)
 - [prd-reviewer 优化方案](./20260621-1455-prd-reviewer-optimization.md)
+- [piflow-cloud-deploy skill 新增完整方案](./20260621-1142-piflow-cloud-deploy-skill.md)
 
 ### 未纳入文档
 
@@ -108,6 +109,22 @@ title: piflow-skills plan_index
   - 2026-06-21 14:55: 根据用户要求，按与 `prd-spec-author`、`prd-client-author` 相同的标准完成 `prd-reviewer` 评审并新增方案文档。当前仅完成文档归档和索引登记，尚未修改 skill 本体，因此状态为 `未执行`、`待评审`。
   - 2026-06-21 15:05: 已执行。`prd-reviewer` 已升级为证据化 PRD 门闸 reviewer；补充 evidence matrix、blocking/recommendation/clarification 分级、跨产物一致性检查、review self-check 和端特定 checklist；README、agent 元数据、版本与 changelog 已同步。验证通过: `rg` 关键规则检查、`git diff --check`。
 
+### PS-005 piflow-cloud-deploy skill 新增完整方案
+
+- 来源:
+  - [piflow-cloud-deploy skill 新增完整方案](./20260621-1142-piflow-cloud-deploy-skill.md)
+- 活跃状态: 活跃
+- 评审状态: 已评审
+- 执行状态: 部分执行
+- 范围: 新增 `skills/piflow-cloud-deploy/`，包含 `SKILL.md`、`VERSION`、`CHANGELOG.md`、`README.md`、`README.zh-CN.md`、`install.mjs`、`agents/openai.yaml`、`references/`、`scripts/`、`schemas/`、`tests/`；同步根 `README.md` / `README.zh-CN.md` 的 Current Skills 列表与安装说明。
+- 当前结论: 应新增一个统一主 skill `piflow-cloud-deploy`，由 PiFlow deploy stage 通过稳定 JSON contract 调用。不同云平台不作为多个平级主 skill 默认安装，而是在主 skill 内通过 provider manifest、`scripts/providers/*.cjs` 和 `references/*.md` 隔离实现；复杂 provider 后续可拆 companion skill，但仍实现同一 request/result contract。首版完整范围包含 manual、mock、Cloudflare、AWS、GCP、custom provider 合同，secret redaction、doctor、schema、自测、README/版本/安装规则和 agent metadata。
+- 依赖: PiFlow 侧 LP-120 provider registry、cloud skill runner 与 `piflow_runtime/cloud/deploy*.json` 配置合同；piflow-skills 根 `install.mjs` 的必需文件校验；现有 skill-local install wrapper 模式。
+- 验收标准: 新 skill 满足根安装器必需文件规则；`VERSION` 初始为 `0.1.0`；README/README.zh-CN/CHANGELOG/install.mjs/agents/openai.yaml 完整；machine runner 能读入 PiFlow request JSON 并输出 result JSON；manual/mock provider 可无真实云凭证跑通；secret redaction 通过自测；Cloudflare adapter 覆盖 PiFlow 当前部署能力合同；AWS/GCP 至少具备 validate/plan/doctor/mock deploy 和权限说明。
+- 状态记录:
+  - 2026-06-21 15:42: 根据用户要求，为 `piflow-skills` 新增 cloud deploy skill 完整方案，并按现有 skill 规则覆盖版本、README、CHANGELOG、install wrapper、agent metadata、provider adapter、schema、doctor 和测试矩阵。当前仅完成方案设计与评审，代码实现未执行。
+  - 2026-06-21 16:20: 部分执行。已新增 `piflow-cloud-deploy` skill 的安装文件、README、agent metadata、contract/schema、provider registry、doctor、redaction、manual/mock provider、Cloudflare/AWS/GCP adapter 框架和自测；根 README 已登记。真实 Cloudflare adapter 等价迁移、AWS/GCP 真实部署、rollback/finalize provider 实现与真实云集成测试尚未完成，因此保持 `部分执行`。
+  - 2026-06-21 16:45: 继续部分执行。Cloudflare/AWS/GCP adapter 已新增显式 provider command 真实执行路径，支持 PiFlow destructive 授权后执行 `deploy.<provider>.commands`、`deploy.commands` 或 `deploy.services[].deploy_command`；`finalize` / `rollback` 已支持 operation-specific 命令；命令输出已按 effective env 脱敏；Cloudflare/AWS/GCP 已新增 Wrangler、AWS CLI、gcloud/Firebase 的内建命令模板并在 plan 中输出 `planned_commands`。Cloudflare adapter 已继续补齐 KV/R2/Queues/D1、Workers secrets/vars、DNS records、Workers routes/domains、Pages domains、CORS allowed origins 与 gateway pages origins 模板。根据新增要求已补充腾讯云 `tencent` 与阿里云 `aliyun` provider，包含凭证 hint、doctor、显式命令、COS/SCF/TCB、OSS/FC/SAE 等内建 CLI 模板。新增 `integration-config-env-providers.cjs`，按 PiFlow 根 `config.env` 中完整 provider key 自动选择云平台执行 validate/plan dry-run；当前验证自动选择 `cloudflare`、`tencent`。自测覆盖真实命令成功、rollback 独立命令、secret redaction、内建命令模板和 Cloudflare 资源模板。真实 destructive 云部署集成测试仍待继续。
+
 ## 4. 矛盾与去重处理
 
 - `req-maker` 旧 export 规则与本方案的关系: 旧规则说明 `freeform_content` 不作为独立字段渲染，只用于 description 兜底；本方案要求项目侧评审后的 `req.md` 显式保留 freeform 字段，用于后续 AI 评审和追溯。最终结论是 draft/评审态 req.md 应显式渲染，Backend export 可先兼容旧输入，但应同步渲染以避免生成与评审规则不一致。
@@ -122,6 +139,7 @@ title: piflow-skills plan_index
 - `prd-reviewer` 与 author skill 的边界: reviewer 不应直接改写 `prd-spec.md` 或端内 PRD，也不应长期替 author 补基础字段。最终结论是 reviewer 输出证据化阻断、建议、澄清和建议反写项，由 author skill 或流水线回写机制处理文档修订。
 - `office-hours` 可借鉴范围: 可借鉴其前提挑战、反方评审、风险显性化和多维度完整性检查；不引入其 startup/builder coaching、人机访谈、用户实时交互或商业化孵化流程，避免偏离 PiFlow PRD 阶段的自动化门闸职责。
 - 第三方 reviewer skill 的取舍: 当前仍保留一个官方 `prd-reviewer` 作为默认门闸，不把 `office-hours`、`gstack/spec` 或其他第三方 skill 直接并入默认主链；第三方方法只作为评审策略来源。
+- `piflow-cloud-deploy` 是否拆成多个云平台主 skill: 默认不拆。PiFlow 需要一个稳定、可安装、可版本约束的调用入口；provider 差异通过 manifest、adapter 脚本和 references 隔离。若 AWS/GCP 企业级能力后续膨胀，可新增 companion skill，但 companion 必须实现同一 JSON contract，不能改变 PiFlow deploy stage 的调用模型。
 
 ## 5. 评审记录
 
@@ -228,3 +246,35 @@ title: piflow-skills plan_index
 - 修改:
   - 将 PS-004 更新为 `已评审`、`已执行`。
   - 更新整体状态与计数为全部评审、全部执行。
+
+### 第 11 轮索引更新
+
+- 结论: 通过
+- 发现:
+  - 新增 `piflow-cloud-deploy` skill 方案文档后，`docs/plans/` 下共有 5 个活跃修改点，其中 4 个已执行，1 个未执行。
+  - 新方案目标项目为 `piflow-skills`，因为它要求新增可安装 skill 包并遵守仓库根安装器的 `VERSION`、README、CHANGELOG、install wrapper 和 agent metadata 规则。
+  - 与 PiFlow 侧 LP-120 的边界清晰：PiFlow 负责 stage 调用合同和配置迁移，`piflow-cloud-deploy` 负责 provider adapter、doctor、schema、runner 和云平台执行能力。
+  - 默认采用单主 skill + provider adapter，不拆多个平级云平台主 skill；该取舍与 PiFlow 需要稳定调用入口的约束一致。
+- 修改:
+  - 新增 PS-005 修改点。
+  - 新增来源文档 `20260621-1142-piflow-cloud-deploy-skill.md`。
+  - 更新汇总状态为 `全部评审 / 部分执行`，活跃修改点 4→5，已评审 4→5，未执行 0→1。
+  - 更新版本为 1.0.7，修改时间为 2026-06-21 15:42，评审轮次为 11。
+
+- 2026-06-21：`20260621-1142-piflow-cloud-deploy-skill.md` 继续部分执行。已落地按 PiFlow `config.env` key 完整性自动选择 provider 的集成测试；当前实际 dry-run provider 为 `cloudflare`、`tencent`，跳过 `aliyun`、`aws`、`gcp`。
+
+- 2026-06-21：`20260621-1142-piflow-cloud-deploy-skill.md` 继续部分执行。已新增 `custom` provider adapter，补齐项目自定义命令/外部 adapter 扩展口，并同步 provider 文档、doctor 参数兼容和 contract 自测。真实 destructive 云部署集成测试仍需在明确项目与授权后执行。
+
+- 2026-06-21：`20260621-1142-piflow-cloud-deploy-skill.md` 继续部分执行。已补齐 provider manifest 全量自测、custom config-env 集成 fixture 的计划命令校验，并通过根安装器 dry-run 验证 skill 必需文件与安装规则。
+
+- 2026-06-21：`20260621-1142-piflow-cloud-deploy-skill.md` 继续部分执行。已修复 runner 对 `--input request.json` / `--project /path` 的参数兼容，并对齐 manual provider dry-run 语义，防止文档示例误执行 doctor 或把 dry-run service 标成已部署。
+
+- 2026-06-21：`20260621-1142-piflow-cloud-deploy-skill.md` 继续部分执行。已由 PiFlow 真实 orchestrator/runner 调用验证 `piflow-cloud-deploy` 的 machine contract、custom provider 执行和 service result 输出。
+
+- 2026-06-21：`20260621-1142-piflow-cloud-deploy-skill.md` 继续部分执行。已收紧 runner operation 枚举合同，未知 operation 不再静默降级为 validate，并用 contract self-test 固化。
+
+- 2026-06-21：`20260621-1142-piflow-cloud-deploy-skill.md` 继续部分执行。已补充 provider hint group 选择边界测试，明确 partial 云凭证不参与完整候选，custom hint 完整时可自动选择 custom。
+
+- 2026-06-21：`20260621-1142-piflow-cloud-deploy-skill.md` 继续部分执行。已新增受保护 real deploy 集成模式，默认 dry-run，显式 real 开关和 provider command 后执行 deploy；README/CHANGELOG 已同步，并用 custom 本地命令验证 real-mode。
+
+- 2026-06-21：`20260621-1142-piflow-cloud-deploy-skill.md` 阻塞于真实云 destructive 集成测试授权。skill 实现、文档、contract、自测、本地 real-mode 与 config-env dry-run 已完成；剩余需要用户提供真实 provider deploy 命令并显式授权后执行。

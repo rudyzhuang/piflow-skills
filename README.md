@@ -22,6 +22,7 @@ For the Chinese version of this document, see [README.zh-CN.md](./README.zh-CN.m
 | `design-system` | Build a project-level design system for the PiFlow `design` stage by using OpenDesign as the built-in primary library and normalizing chosen packs, fallback references, brand direction, and multi-surface UI constraints into reusable tokens, layout rules, component principles, and guardrails. | `skills/design-system/SKILL.md`, `skills/design-system/scripts/opendesign-design-system.mjs`, `skills/design-system/agents/openai.yaml` |
 | `commit-push` | Turn "commit and push" into a repeatable Git workflow: inspect changes, derive commit intent, optionally bump versions, commit, push, and optionally create missing GitHub remotes. | `skills/commit-push/SKILL.md`, `skills/commit-push/scripts/commit_push.cjs`, `skills/commit-push/scripts/github_remote.cjs` |
 | `piflow-status-inspector` | Read `output-stages/stages.json` from the current project and summarize PiFlow runtime status, stage progress, runtime, failures, recovery counts, and current stage task completion. | `skills/piflow-status-inspector/SKILL.md`, `skills/piflow-status-inspector/scripts/project_status.cjs`, `skills/piflow-status-inspector/agents/openai.yaml` |
+| `piflow-cloud-deploy` | Execute, validate, plan, and diagnose PiFlow cloud deployments through provider adapters for manual, mock, Cloudflare, AWS, GCP, Tencent Cloud, Alibaba Cloud, and custom project commands. | `skills/piflow-cloud-deploy/SKILL.md`, `skills/piflow-cloud-deploy/scripts/cloud_deploy.cjs`, `skills/piflow-cloud-deploy/scripts/doctor.cjs`, `skills/piflow-cloud-deploy/agents/openai.yaml` |
 | `add-skill-lib` | Add a Git-hosted skill library into the PiFlow pipeline repository by cloning it into `skill-libraries/repos/<library-name>`, writing metadata under `skill-libraries/libs/<library-name>`, registering it in `skill-libraries/libraries.yaml`, and exposing skills. | `skills/add-skill-lib/SKILL.md`, `skills/add-skill-lib/agents/openai.yaml` |
 
 ## Supported Agents
@@ -228,6 +229,18 @@ Use $req-maker to turn this spec into inputs/req.md.
       install.mjs
       agents/
       scripts/
+    piflow-cloud-deploy/
+      SKILL.md
+      README.md
+      README.zh-CN.md
+      VERSION
+      CHANGELOG.md
+      install.mjs
+      agents/
+      references/
+      schemas/
+      scripts/
+      tests/
     add-skill-lib/
       SKILL.md
       README.md
@@ -247,6 +260,9 @@ Use $req-maker to turn this spec into inputs/req.md.
   an authenticated GitHub account.
 - `piflow-status-inspector` uses Node.js to read and parse
   `output-stages/stages.json`.
+- `piflow-cloud-deploy` uses Node.js for request/result processing. Real cloud
+  providers may require provider credentials or CLIs such as Wrangler, AWS CLI,
+  or gcloud depending on the adapter being used.
 - Codex plugin installation requires the `codex` command for the final
   `codex plugin add` step. Without it, the marketplace entry is still written.
 

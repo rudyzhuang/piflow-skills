@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.14 - 2026-06-21
+
+- 更新仓库说明与计划索引
+- Changed: 3 file(s).
+- Areas: .(2), docs(1).
+- Hints: documentation.
+
 ## 0.1.13 - 2026-06-21
 
 - 提交 piflow-cloud-deploy skill 相关内容
