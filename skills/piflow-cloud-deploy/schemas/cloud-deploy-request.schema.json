@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://piflow.local/schemas/cloud-deploy-request.schema.json",
+  "type": "object",
+  "required": ["api_version", "operation"],
+  "properties": {
+    "api_version": { "const": "piflow.cloud.deploy/v1" },
+    "operation": {
+      "type": "string",
+      "enum": ["validate", "plan", "deploy", "probe", "finalize", "rollback", "doctor"]
+    },
+    "provider": { "type": "string" },
+    "project_root": { "type": "string" },
+    "config_name": { "type": "string", "enum": ["dev", "release"] },
+    "effective_env": { "type": "object", "additionalProperties": true },
+    "deploy": { "type": "object", "additionalProperties": true },
+    "smoke": { "type": "object", "additionalProperties": true },
+    "services": { "type": "array", "items": { "type": "object", "additionalProperties": true } },
+    "artifacts": { "type": "array", "items": { "type": "object", "additionalProperties": true } },
+    "provider_resolution": { "type": "object", "additionalProperties": true },
+    "run_context": { "type": "object", "additionalProperties": true }
+  },
+  "additionalProperties": true
+}

@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.13 - 2026-06-21
+
+- 提交 piflow-cloud-deploy skill 相关内容
+- Changed: 37 file(s).
+- Areas: skills(36), docs(1).
+- Hints: initial or bulk add, scripts/tests, documentation, spec/templates.
+- Added: 37, Modified: 0, Deleted: 0.
+
 ## 0.1.12 - 2026-06-21
 
 - 提交当前改动

@@ -1,0 +1,7 @@
+interface:
+  display_name: "PiFlow Cloud Deploy"
+  short_description: "通过 provider adapter 为 PiFlow deploy 阶段执行云部署、校验、计划与诊断"
+  default_prompt: "Use $piflow-cloud-deploy to validate, plan, or execute a PiFlow cloud deployment from piflow_runtime/cloud configuration and the provided deploy request."
+
+policy:
+  allow_implicit_invocation: true

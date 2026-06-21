@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://piflow.local/schemas/provider-manifest.schema.json",
+  "type": "object",
+  "required": ["provider_id", "service_types", "capabilities", "credential_hints", "required_permissions"],
+  "properties": {
+    "provider_id": { "type": "string" },
+    "service_types": { "type": "array", "items": { "type": "string" } },
+    "capabilities": { "type": "array", "items": { "type": "string" } },
+    "credential_hints": {
+      "type": "array",
+      "items": { "type": "array", "items": { "type": "string" } }
+    },
+    "required_permissions": { "type": "array", "items": { "type": "string" } }
+  },
+  "additionalProperties": true
+}

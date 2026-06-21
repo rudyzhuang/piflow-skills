@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://piflow.local/schemas/cloud-deploy-result.schema.json",
+  "type": "object",
+  "required": ["api_version", "provider", "operation", "status", "services", "actions", "user_actions", "metadata"],
+  "properties": {
+    "api_version": { "const": "piflow.cloud.deploy/v1" },
+    "provider": { "type": "string" },
+    "operation": { "type": "string" },
+    "status": { "type": "string", "enum": ["completed", "failed", "blocked", "skipped"] },
+    "services": { "type": "array", "items": { "type": "object", "additionalProperties": true } },
+    "actions": { "type": "array", "items": { "type": "object", "additionalProperties": true } },
+    "urls": { "type": "object", "additionalProperties": true },
+    "probe": { "type": "object", "additionalProperties": true },
+    "smoke": { "type": "object", "additionalProperties": true },
+    "failure_context": { "type": ["object", "null"], "additionalProperties": true },
+    "user_actions": { "type": "array", "items": { "type": "string" } },
+    "metadata": { "type": "object", "additionalProperties": true }
+  },
+  "additionalProperties": true
+}

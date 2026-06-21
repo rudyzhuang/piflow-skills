@@ -1,0 +1,24 @@
+{
+  "api_version": "piflow.cloud.deploy/v1",
+  "operation": "deploy",
+  "provider": "manual",
+  "project_root": "/tmp/piflow-cloud-deploy-fixture",
+  "config_name": "dev",
+  "effective_env": {},
+  "deploy": {
+    "provider": "manual",
+    "services": [
+      {
+        "name": "website",
+        "client_target": "website",
+        "type": "static_site",
+        "url": "https://example.com"
+      }
+    ]
+  },
+  "smoke": {},
+  "run_context": {
+    "run_id": "fixture",
+    "dry_run": true
+  }
+}
