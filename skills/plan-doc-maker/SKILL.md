@@ -51,12 +51,14 @@ Create project-local plan documents in `docs/plans/`, maintain each target proje
    - Review the document against the user's request and the project context.
    - Check reasonableness, completeness, internal consistency, feasibility, scope control, risks, rollback, testability, and acceptance criteria.
    - For existing-project modifications or upgrades, place extra weight on contract consistency and compatibility with the current codebase.
-   - Produce concrete findings internally and apply fixes directly to the plan document. Do not leave a separate review report unless the user asks for one.
+   - Produce concrete findings, record them in the plan's review section, and apply fixes directly to the plan document. Do not leave a separate review report unless the user asks for one.
 
 6. Repeat review and revision until each generated project plan is approved.
    - After every revision, run another review.
    - Continue while there are material omissions, contradictions, unreasonable steps, unhandled risks, incompatible assumptions, or gaps against project contracts.
-   - Stop only when the review passes.
+   - Stop only when a fresh review pass after the latest edit finds no material issues.
+   - If any review pass finds issues, the next pass after fixes is a new review round; do not reuse the previous pass result.
+   - If any content is changed after a `通过` review record, invalidate that pass and run another review round before finalizing.
    - When the review passes, update the document status to `已评审` and refresh the modified time.
 
 7. Maintain `plan_index.md` for each target project after generating or updating project plans.
@@ -281,17 +283,31 @@ title: <项目名称> plan_index
 
 ## Review Criteria
 
-Each review pass must check:
+Each review pass must be an adversarial code-review-style pass, not a summary. Findings come first, and the pass fails if any material finding remains. Each pass must check:
 
 - User alignment: the plan answers the stated goal and does not solve an unrelated problem.
 - Completeness: background, goals, scope, non-goals, design, rollout, tests, acceptance criteria, risks, and rollback are covered when relevant.
 - Reasonableness: the plan is technically feasible and scoped to the observed project.
 - Internal consistency: terminology, dependencies, timelines, stages, and assumptions do not contradict each other.
+- Rule and example consistency: command examples, JSON samples, option tables, status names, provider values, paths, filenames, and acceptance criteria match the rules stated elsewhere in the same document.
+- Implementation guidance consistency: any referenced helper, script, API, schema, config key, CLI option, or existing behavior must actually satisfy the rule the plan assigns to it. If a helper only partially enforces the rule, the plan must say what additional check or implementation change is required.
+- Safety semantics: destructive commands, `--dry-run`, `--force`, idempotency, partial updates, fallback behavior, unknown fields, and secret handling are unambiguous and testable.
 - Cross-document consolidation: overlapping changes from multiple source plans under the same project are merged into one modification point with all source references preserved.
 - Conflict resolution quality: contradictory designs are evaluated for reasonableness, correctness, consistency, compatibility, implementation risk, rollout safety, and testability; unresolved high-impact choices are escalated to the user with options, pros, cons, and a recommendation.
 - Contract compatibility: public APIs, data formats, config, environment variables, CLI behavior, database schema, generated files, tests, and deployment expectations remain compatible or have explicit migration steps.
 - Operational safety: rollout, monitoring, fallback, rollback, and data safety are addressed for risky changes.
 - Testability: the plan includes concrete verification steps and acceptance criteria.
+- Review evidence: every failed pass records concrete findings and applied fixes; the final pass records that it was run after the latest edit and found no material issues.
+
+For CLI, configuration, runtime, credential, deployment, pipeline, or automation plans, the review must additionally check:
+
+- Every command synopsis matches the documented behavior and examples.
+- `--dry-run` has no filesystem side effects unless explicitly documented and justified.
+- `--force` or equivalent confirmation is required for destructive actions.
+- Secret values are never shown in examples, JSON output, logs, final responses, or review records.
+- Project-level overrides and fallback layers are handled without falsely requiring global configuration fields.
+- Unknown user-managed fields are preserved or explicitly rejected; they are never silently dropped.
+- Validation rules match existing setup/runtime validators, or the plan explicitly includes the validator changes needed to make them match.
 
 Record individual plan review results in `## 9. 评审记录` as concise entries. Record `plan_index.md` review results in its `## 5. 评审记录` section using the same entry shape:
 
@@ -303,16 +319,48 @@ Record individual plan review results in `## 9. 评审记录` as concise entries
   - <具体问题；通过时写“未发现阻塞问题”>
 - 修改:
   - <本轮已应用的修改；通过时写“无需修改”>
+- 复审确认:
+  - <若通过，说明本轮是在最新修改后执行；若需修订，说明下一轮必须复审>
 ```
+
+Mandatory review loop protocol:
+
+1. Draft or update the plan.
+2. Run review round 1 and record findings in the document.
+3. If findings exist, mark the document `评审结果: 需修订`, apply fixes, refresh `修改时间`, and run the next review round.
+4. Repeat until a review round after the latest edit has zero material findings.
+5. Only then set `文档状态: 已评审`, `评审结果: 通过`, and `评审轮次` to the actual number of completed rounds.
+6. Before final response, perform one final self-check that the latest review record is a passing record and no edits occurred after that record.
 
 ## Git Rules
 
-- If the target project has a git repository, commit only the plan document and directly related files created by this skill.
-- Before committing, inspect `git status` and avoid staging unrelated user changes.
-- Use a concise Chinese commit message, for example `docs: 新增认证升级方案`.
-- If a remote and upstream are configured, push after committing.
-- If no remote or upstream exists, do not create one unless the user explicitly asks. Report that the commit stayed local.
+After successful review, commit and push using the `commit-push` skill's `commit_push.cjs` script. Do not hand-write `git add`, `git commit`, or `git push` unless the script itself fails and you are explicitly troubleshooting the failure.
+
+- Default branch policy: keep official plan documents on `main`.
+- Before calling `commit_push`, check the target repository branch. If it is not `main`, switch to `main` and update it before committing unless the user explicitly requested another branch.
+- If switching to `main` is unsafe because of uncommitted unrelated work, classify those changes first and avoid losing them. Ask the user only if the branch switch would be unsafe.
+- Commit only the plan document, `docs/plans/plan_index.md`, and directly related files created or updated by this skill.
+- Pass every intended file with repeated `--file=<absolute-path>` arguments so unrelated user changes are not staged.
+- Use a concise Chinese intent or message, for example `docs: 新增认证升级方案`.
+- Run a `commit_push --dry-run` preview first when there is any risk of staging unrelated files, then run the same command with `--yes`.
+- Push after commit when the repository has a remote/upstream. If no remote or upstream exists, do not create one unless the user explicitly asks. Report that the commit stayed local.
 - If there are no changes after review, do not create an empty commit.
+
+Recommended command shape:
+
+```bash
+node ~/.cursor/skills/commit-push/scripts/commit_push.cjs \
+  --intent="<本次方案文档目的>" \
+  --file=<project-root>/docs/plans/<plan>.md \
+  --file=<project-root>/docs/plans/plan_index.md \
+  --yes
+```
+
+If the Cursor skill path does not exist, use the equivalent Codex path:
+
+```bash
+node ~/.codex/skills/commit-push/scripts/commit_push.cjs ...
+```
 
 ## Final Response
 
@@ -322,5 +370,5 @@ Report:
 - The generated or updated plan document path or paths.
 - The `plan_index.md` path for each target project.
 - The final status and review round count for generated plans and `plan_index.md`.
-- Whether git commit and push were performed, including the commit hash when available.
+- Whether `commit_push` was called, which branch was used, whether git commit and push were performed, and the commit hash when available.
 - Any assumptions or important gaps that remain.

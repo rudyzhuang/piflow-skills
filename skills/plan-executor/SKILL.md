@@ -59,16 +59,19 @@ Repeat this loop until every active modification point or ad hoc checklist item 
    - If partially implemented, continue from the actual code state instead of restarting.
    - If not implemented, implement exactly the planned change while preserving existing project conventions.
 3. After each modification point or checklist item is implemented, or after an apparently complete pre-existing implementation is verified, run a review-fix loop for that item:
-   - Review the current implementation and any code diff against the plan point and source plan references.
-   - Check for omissions, incorrect interpretation, unreasonable implementation choices, regressions, compatibility breaks, hidden side effects, missing tests, and mismatched statuses.
-   - If review finds issues, fix them immediately, then review again.
-   - Continue review -> fix -> review until the point passes.
+   - Review the current implementation and any code diff against the plan point and source plan references in a code-review mindset.
+   - Produce concrete findings before making any further edits. A review pass is not complete until it has an explicit findings list, even when the list is empty.
+   - Check for omissions, incorrect interpretation, unreasonable implementation choices, regressions, compatibility breaks, hidden side effects, missing tests, mismatched statuses, and mismatch between documentation/examples and behavior.
+   - If review finds issues, fix them immediately, then run a new review round after the fix.
+   - Stop only when a fresh review round after the latest code/document/status edit finds no material issues.
+   - If any file changes after a passing review round, invalidate that pass and run another review round before updating plan state.
 4. After a point passes review, run a purpose-and-requirements confirmation pass before updating plan state.
    - Do not treat `评审通过`, `已评审`, or a clean review result as proof that implementation is complete.
    - Re-read the plan's purpose, conclusion, scope, acceptance criteria, linked source plan details, and every concrete requirement for the point or checklist item.
    - Compare the current code behavior and tests against those requirements one by one. Confirm that the implementation truly delivers the plan's intended outcome, not merely that the diff looks acceptable.
    - If any requirement, edge case, integration behavior, status update, or verification evidence is missing, treat the point as incomplete. Implement the missing work, then return to the review-fix loop and repeat review and purpose confirmation from the start.
    - Continue this review -> purpose confirmation -> fix cycle until there are no remaining gaps between the code and the plan's purpose.
+   - If purpose confirmation causes any code, test, documentation, or status edit, run the review-fix loop again afterward.
 5. When a point passes both review and purpose confirmation, update plan state.
    - If using `plan_index.md`, update `plan_index.md`.
    - Set the point's `评审状态: 已评审` when the implementation still matches a reviewed plan.
@@ -101,6 +104,38 @@ Do not finish the task while any active modification point or ad hoc checklist i
 - If implementation reveals that the plan itself is wrong or unsafe, mark the affected point `评审状态: 需修订`, revise the plan status/history, fix the implementation approach, then continue the review loop.
 - Never declare a plan point complete only because review has passed. Completion requires explicit confirmation that the code implements the plan's purpose and all concrete requirements.
 
+## Mandatory Code Review Protocol
+
+For every modified code, test, documentation, configuration, prompt, schema, workflow, or generated artifact, run the following loop before considering the item complete:
+
+1. Inspect the final diff for the current item.
+2. Produce a findings-first review:
+   - List each bug, behavioral regression, compatibility issue, missing test, documentation mismatch, unsafe edge case, or status inconsistency.
+   - Include the affected file or behavior.
+   - If no material issues are found, explicitly record that no material findings remain.
+3. Fix every material finding.
+4. Re-review the updated diff from scratch.
+5. Repeat until the latest review round has zero material findings.
+6. Only then proceed to purpose-and-requirements confirmation.
+
+The loop must be actual, not ceremonial:
+
+- Do not mark an item done after only running tests or checking that commands exit successfully. Tests are evidence for review, not a substitute for review.
+- Do not rely on a review result produced before the latest edit.
+- Do not batch several unrelated items under one vague "looks good" review; each active plan point or checklist item needs its own review result.
+- If a later global/final review finds a problem in an item already marked complete, reopen that item, fix it, and repeat the item review and purpose confirmation before finalizing.
+
+For CLI, configuration, credential, deployment, pipeline, automation, or developer-tooling changes, the review must additionally check:
+
+- `--dry-run` has no filesystem, network, or persistent state side effects unless explicitly documented and justified.
+- Destructive commands require `--force`, confirmation, or an equivalent explicit guard.
+- Secret values are never printed in stdout, JSON reports, logs, docs, tests, review notes, or final responses.
+- Partial overrides and fallback layers do not falsely require global configuration fields.
+- Unknown user-managed fields are preserved or explicitly rejected; they are never silently dropped.
+- Error paths do not create files, mutate state, or hide the real failure.
+- JSON/text examples, README snippets, help output, and implementation behavior stay consistent.
+- Validation rules match the existing runtime/setup validators, or the implementation updates those validators and tests together.
+
 ## Verification Rules
 
 For every executed point, choose verification proportional to risk:
@@ -110,6 +145,8 @@ For every executed point, choose verification proportional to risk:
 - For user-facing frontend changes, verify the running app visually when feasible.
 - For database, migration, file format, public API, CLI, auth, environment, or deployment changes, verify compatibility and rollback implications against the plan.
 - If a verification command cannot run, record the exact reason and use the best available alternative. Do not mark a point complete without some evidence.
+
+Verification evidence must include both command evidence and review evidence when code or behavior changed. A passing command without a passing review round is insufficient.
 
 ## `plan_index.md` Maintenance
 
@@ -122,6 +159,7 @@ When editing `plan_index.md`:
 - Keep stable modification point IDs such as `LP-001`; never renumber existing points.
 - Append status history instead of replacing past records.
 - Ensure every active point has `活跃状态`, `评审状态`, `执行状态`, scope, conclusion, acceptance criteria or verification method, and status history.
+- Status history for completed points must mention the latest review round outcome and the verification evidence used.
 - Before finalizing, scan all active points again and confirm none remain `未执行`, `部分执行`, `待评审`, or `需修订`.
 
 ## Source Plan Maintenance
@@ -140,16 +178,45 @@ When execution comes from source plan documents generated by `plan-doc-maker`, k
 Finish only after all of these are true:
 
 1. Every active modification point in `plan_index.md`, or every item in the user-provided ad hoc checklist, is implemented.
-2. Every active modification point or checklist item passed the review-fix loop.
+2. Every active modification point or checklist item passed a fresh review-fix loop after its latest edit.
 3. Every active modification point or checklist item has been re-checked against the plan's purpose and concrete requirements after review, with any discovered gaps fixed and re-reviewed.
 4. `plan_index.md` accurately records per-point and overall statuses when it is part of the execution source.
 5. Source plan documents accurately record implementation status when they are referenced and available.
 6. Verification evidence is recorded or summarized for each active point or checklist item.
-7. The working tree contains only intended plan execution changes, plan status updates, and necessary supporting files.
-8. The final state has been committed and pushed.
-9. A concise execution summary report has been prepared for the user.
+7. A final whole-change review has checked cross-item consistency, docs/examples/help output, status updates, and verification evidence after all edits are complete.
+8. The working tree contains only intended plan execution changes, plan status updates, and necessary supporting files.
+9. The final state has been committed and pushed through `commit_push` on `main`, unless the user explicitly requested another branch or commit/push is impossible.
+10. A concise execution summary report has been prepared for the user.
 
-Use the repository's normal git workflow. If commit or push is impossible because there is no git repository, no remote, no upstream, authentication failure, or an unsafe unresolved worktree conflict, report the blocker clearly with the remaining required action.
+Use the `commit-push` skill's `commit_push.cjs` script for final commit and push. Do not hand-write `git add`, `git commit`, or `git push` unless the script itself fails and you are explicitly troubleshooting the failure.
+
+Commit/push rules:
+
+- Default branch policy: plan execution work lands on `main`.
+- Before calling `commit_push`, check the target repository branch. If it is not `main`, switch to `main` and update it before committing unless the user explicitly requested another branch.
+- If switching to `main` is unsafe because of uncommitted unrelated work, classify those changes first and avoid losing them. Ask the user only if the branch switch would be unsafe.
+- Pass every intended implementation file, test file, docs/plans file, status file, and supporting file with repeated `--file=<absolute-path>` arguments so unrelated user changes are not staged.
+- Include source plan documents and `plan_index.md` when their statuses were updated.
+- Use a concise Chinese intent or message that describes the implemented plan outcome.
+- Run a `commit_push --dry-run` preview first when there is any risk of staging unrelated files, then run the same command with `--yes`.
+- Push after commit when the repository has a remote/upstream. If no remote or upstream exists, do not create one unless the user explicitly asks. Report that the commit stayed local.
+- If commit or push is impossible because there is no git repository, no remote, no upstream, authentication failure, or an unsafe unresolved worktree conflict, report the blocker clearly with the remaining required action.
+
+Recommended command shape:
+
+```bash
+node ~/.cursor/skills/commit-push/scripts/commit_push.cjs \
+  --intent="<本次方案执行目的>" \
+  --file=<changed-file-1> \
+  --file=<changed-file-2> \
+  --yes
+```
+
+If the Cursor skill path does not exist, use the equivalent Codex path:
+
+```bash
+node ~/.codex/skills/commit-push/scripts/commit_push.cjs ...
+```
 
 ## Final Response
 
@@ -160,6 +227,7 @@ Before ending, output a concise execution summary report that tells the user wha
 - code changes made, or a clear note that code was already complete and only statuses were maintained
 - plan documents and status fields updated
 - verification performed and any skipped verification with reasons
-- commit and push result
+- review-fix loops performed, including the final review result
+- whether `commit_push` was called, which branch was used, and the commit/push result
 
 If anything could not be pushed, state whether the implementation and status updates are committed locally or only present in the working tree.

@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.12 - 2026-06-21
+
+- 提交当前改动
+- Changed: 3 file(s).
+- Areas: skills(3).
+- Hints: documentation.
+
 ## 0.1.11 - 2026-06-20
 
 - 收敛 add-skill-lib 元数据推断职责并调整运行时接线说明
