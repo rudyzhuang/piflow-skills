@@ -1,0 +1,7 @@
+interface:
+  display_name: "Miniapp Platform Douyin"
+  short_description: "Apply Douyin miniapp-specific API boundaries, adapters, and release constraints to codegen output."
+  default_prompt: "Use $miniapp-platform-douyin when miniapp delivery uses tt / douyin-miniapp; keep business logic in foundation paths and tighten tt adapter boundaries, auth scopes, and release-ready checks."
+
+policy:
+  allow_implicit_invocation: true

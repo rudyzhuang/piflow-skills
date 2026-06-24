@@ -1,0 +1,7 @@
+interface:
+  display_name: "Miniapp Quality and Compliance"
+  short_description: "Run miniapp quality, privacy, permission, and release-readiness checks after implementation."
+  default_prompt: "Use $miniapp-quality-and-compliance for miniapp codegen/test review: run permission/privacy/platform compliance checks, spot blockers, and output explicit needs_human items for unresolved risks."
+
+policy:
+  allow_implicit_invocation: true

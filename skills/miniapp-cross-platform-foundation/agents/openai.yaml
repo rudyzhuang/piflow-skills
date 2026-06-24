@@ -1,0 +1,7 @@
+interface:
+  display_name: "Miniapp Cross-Platform Foundation"
+  short_description: "Define shared Taro-first miniapp architecture, adapters, and cross-platform constraints for PiFlow codegen."
+  default_prompt: "Use $miniapp-cross-platform-foundation for shared miniapp project bootstrap: project type detection, shared source structure, platform adapters, conditional compilation boundaries, and cross-platform QA pre-checks before platform skill tuning."
+
+policy:
+  allow_implicit_invocation: true

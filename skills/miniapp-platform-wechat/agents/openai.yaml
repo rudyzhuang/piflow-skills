@@ -1,0 +1,7 @@
+interface:
+  display_name: "Miniapp Platform WeChat"
+  short_description: "Apply WeChat miniapp-specific API constraints, config, and review checks for PiFlow codegen."
+  default_prompt: "Use $miniapp-platform-wechat when handling WeChat miniapp-specific behavior: wx API boundary, permission/privacy flow, review checklist, and performance constraints."
+
+policy:
+  allow_implicit_invocation: true

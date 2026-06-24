@@ -1,13 +1,13 @@
 ---
 title: piflow-skills plan_index
-版本: 1.0.7
+版本: 1.0.9
 文档状态: 部分执行
 评审状态: 全部评审
 执行状态: 部分执行
 创建时间: 2026-06-06 19:32
-修改时间: 2026-06-21 16:45
+修改时间: 2026-06-24 11:30
 作者: Codex
-评审轮次: 11
+评审轮次: 13
 评审结果: 通过
 ---
 
@@ -28,11 +28,11 @@ title: piflow-skills plan_index
 - 评审状态: 全部评审
 - 执行状态: 部分执行
 - 文档状态: 部分执行
-- 活跃修改点: 5
-- 已评审修改点: 5
+- 活跃修改点: 6
+- 已评审修改点: 6
 - 已执行修改点: 4
 - 部分执行修改点: 1
-- 未执行修改点: 0
+- 未执行修改点: 1
 
 ## 2. 来源文档
 
@@ -41,6 +41,7 @@ title: piflow-skills plan_index
 - [prd-client-author 优化方案](./20260621-1435-prd-client-author-optimization.md)
 - [prd-reviewer 优化方案](./20260621-1455-prd-reviewer-optimization.md)
 - [piflow-cloud-deploy skill 新增完整方案](./20260621-1142-piflow-cloud-deploy-skill.md)
+- [小程序官方 skill 组与 PiFlow unit 接入方案](./20260624-1058-miniapp-skills-piflow-plan.md)
 
 ### 未纳入文档
 
@@ -125,6 +126,20 @@ title: piflow-skills plan_index
   - 2026-06-21 16:20: 部分执行。已新增 `piflow-cloud-deploy` skill 的安装文件、README、agent metadata、contract/schema、provider registry、doctor、redaction、manual/mock provider、Cloudflare/AWS/GCP adapter 框架和自测；根 README 已登记。真实 Cloudflare adapter 等价迁移、AWS/GCP 真实部署、rollback/finalize provider 实现与真实云集成测试尚未完成，因此保持 `部分执行`。
   - 2026-06-21 16:45: 继续部分执行。Cloudflare/AWS/GCP adapter 已新增显式 provider command 真实执行路径，支持 PiFlow destructive 授权后执行 `deploy.<provider>.commands`、`deploy.commands` 或 `deploy.services[].deploy_command`；`finalize` / `rollback` 已支持 operation-specific 命令；命令输出已按 effective env 脱敏；Cloudflare/AWS/GCP 已新增 Wrangler、AWS CLI、gcloud/Firebase 的内建命令模板并在 plan 中输出 `planned_commands`。Cloudflare adapter 已继续补齐 KV/R2/Queues/D1、Workers secrets/vars、DNS records、Workers routes/domains、Pages domains、CORS allowed origins 与 gateway pages origins 模板。根据新增要求已补充腾讯云 `tencent` 与阿里云 `aliyun` provider，包含凭证 hint、doctor、显式命令、COS/SCF/TCB、OSS/FC/SAE 等内建 CLI 模板。新增 `integration-config-env-providers.cjs`，按 PiFlow 根 `config.env` 中完整 provider key 自动选择云平台执行 validate/plan dry-run；当前验证自动选择 `cloudflare`、`tencent`。自测覆盖真实命令成功、rollback 独立命令、secret redaction、内建命令模板和 Cloudflare 资源模板。真实 destructive 云部署集成测试仍待继续。
 
+### PS-006 小程序官方 skill 组与 PiFlow unit 接入方案
+
+- 来源:
+  - [小程序官方 skill 组与 PiFlow unit 接入方案](./20260624-1058-miniapp-skills-piflow-plan.md)
+- 活跃状态: 活跃
+- 评审状态: 已评审
+- 执行状态: 未执行
+- 范围: 规划新增 `miniapp-cross-platform-foundation`、`miniapp-platform-wechat`、`miniapp-platform-douyin`、`miniapp-platform-alipay`、`miniapp-quality-and-compliance` 等官方 skill；后续可能新增 `miniapp-platform-baidu` 与 `miniapp-release`；规划 PiFlow `codegen` / `test` unit wiring、`skill.yaml` 治理元数据、README、VERSION、CHANGELOG、install wrapper 和 agent metadata。
+- 当前结论: 小程序开发适合作为 PiFlow 官方 skill 组，以 `miniapp-cross-platform-foundation` 作为跨端工程底座，并默认采用 Taro 作为 foundation 技术栈。默认按目标平台拆 unit，避免无关平台规则污染；只有 PRD 明确要求一套代码多平台交付时才启用多平台组合 unit。首版应先做 foundation、微信、抖音、支付宝、质量合规 5 个 skill；百度专项和发布自动化暂缓，`miniapp-release` 后续也应保持 catalog-only 或显式 capability。
+- 依赖: 用户提供的 `/Users/guodongzhuang/Downloads/小程序skill参考.md`，现有 `flutter_official_repo` 的一能力一 skill 粒度，PiFlow `templates/skills-template.yaml` 的 unit 注入机制，piflow-skills 根安装器对 `SKILL.md`、`VERSION`、`README`、`CHANGELOG`、`install.mjs` 的文件约束。
+- 验收标准: 方案文档能指导后续创建 5 个首版 skill；每个 skill 的职责边界清晰；`miniapp-cross-platform-foundation` 不承载平台百科；平台专项 skill 只补平台行为；unit wiring 明确 foundation 与平台专项可同时加载；发布、上传、提交审核不进入默认自动化；未经核验的平台政策、日期、费率、案例收益不写成官方强约束。
+- 状态记录:
+- 2026-06-24 11:30: 根据用户补充 Taro 技术栈说明，更新《小程序官方 skill 组与 PiFlow unit 接入方案》为 Taro-first 可执行版本：增加 `React + TypeScript + Taro` 约束、`design-spec.yaml -> taro build` 映射、每个单平台 unit 同时注入质量合规 skill 与平台 skill 的推荐组合。当前仅完成方案归档和索引登记，尚未创建实际 skill 目录，因此状态为 `未执行`。
+
 ## 4. 矛盾与去重处理
 
 - `req-maker` 旧 export 规则与本方案的关系: 旧规则说明 `freeform_content` 不作为独立字段渲染，只用于 description 兜底；本方案要求项目侧评审后的 `req.md` 显式保留 freeform 字段，用于后续 AI 评审和追溯。最终结论是 draft/评审态 req.md 应显式渲染，Backend export 可先兼容旧输入，但应同步渲染以避免生成与评审规则不一致。
@@ -140,6 +155,8 @@ title: piflow-skills plan_index
 - `office-hours` 可借鉴范围: 可借鉴其前提挑战、反方评审、风险显性化和多维度完整性检查；不引入其 startup/builder coaching、人机访谈、用户实时交互或商业化孵化流程，避免偏离 PiFlow PRD 阶段的自动化门闸职责。
 - 第三方 reviewer skill 的取舍: 当前仍保留一个官方 `prd-reviewer` 作为默认门闸，不把 `office-hours`、`gstack/spec` 或其他第三方 skill 直接并入默认主链；第三方方法只作为评审策略来源。
 - `piflow-cloud-deploy` 是否拆成多个云平台主 skill: 默认不拆。PiFlow 需要一个稳定、可安装、可版本约束的调用入口；provider 差异通过 manifest、adapter 脚本和 references 隔离。若 AWS/GCP 企业级能力后续膨胀，可新增 companion skill，但 companion 必须实现同一 JSON contract，不能改变 PiFlow deploy stage 的调用模型。
+- 小程序 skill 是单个总 skill 还是多个 skill: 默认拆成多个。`miniapp-cross-platform-foundation` 只作为跨端工程底座，微信、抖音、支付宝等平台专项作为 companion skill 与它在 unit 中组合。这样能复用通用规则，又避免微信项目被抖音直播挂载、支付宝 IoT 等无关规则干扰。
+- 小程序发布能力是否进入默认 deploy: 默认不进入。构建、上传、提交审核、线上发布涉及平台凭证、主体、类目和真实外部写操作，应后续通过 `miniapp-release` 显式 capability 或用户授权启用，不能随 codegen/test 默认触发。
 
 ## 5. 评审记录
 
@@ -278,3 +295,18 @@ title: piflow-skills plan_index
 - 2026-06-21：`20260621-1142-piflow-cloud-deploy-skill.md` 继续部分执行。已新增受保护 real deploy 集成模式，默认 dry-run，显式 real 开关和 provider command 后执行 deploy；README/CHANGELOG 已同步，并用 custom 本地命令验证 real-mode。
 
 - 2026-06-21：`20260621-1142-piflow-cloud-deploy-skill.md` 阻塞于真实云 destructive 集成测试授权。skill 实现、文档、contract、自测、本地 real-mode 与 config-env dry-run 已完成；剩余需要用户提供真实 provider deploy 命令并显式授权后执行。
+
+### 第 13 轮索引更新
+
+- 结论: 通过
+- 发现:
+  - 新增小程序官方 skill 组方案文档后，`docs/plans/` 下共有 6 个活跃修改点，其中 4 个已执行，1 个部分执行，1 个未执行。
+  - 小程序方案目标项目为 `piflow-skills`，因为它要求后续新增可安装官方 skill，并遵守仓库根安装器的 `VERSION`、README、CHANGELOG、install wrapper 和 agent metadata 规则。
+  - `miniapp-cross-platform-foundation` 与微信、抖音、支付宝平台专项 skill 应在同一 codegen unit 中组合使用；默认单平台 unit 不加载其他平台专项，避免上下文污染。
+  - 发布、上传、提交审核应独立为后续 `miniapp-release` 显式 capability，不进入默认 deploy。
+- 修改:
+  - 新增 PS-006 修改点。
+  - 新增来源文档 `20260624-1058-miniapp-skills-piflow-plan.md`。
+  - 更新汇总状态为 `全部评审 / 部分执行`，活跃修改点 5→6，已评审 5→6，未执行 0→1。
+  - 更新版本为 1.0.8，修改时间为 2026-06-24 11:30，评审轮次为 13。
+  - 更新 PS-006 结论为 Taro-first 可执行版本，并补充 unit 组合中 `miniapp-quality-and-compliance` 的默认挂载建议。

@@ -1,0 +1,7 @@
+interface:
+  display_name: "Miniapp Platform Alipay"
+  short_description: "Handle Alipay miniapp API boundaries, auth/payment flow guardrails, and review-sensitive checks for codegen."
+  default_prompt: "Use $miniapp-platform-alipay for miniapp features on alipay; keep shared code in adapters and validate payment/auth flow closure, privacy, and compliance gates."
+
+policy:
+  allow_implicit_invocation: true
