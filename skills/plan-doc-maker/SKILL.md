@@ -51,6 +51,7 @@ Create project-local plan documents in `docs/plans/`, maintain each target proje
    - Review the document against the user's request and the project context.
    - Check reasonableness, completeness, internal consistency, feasibility, scope control, risks, rollback, testability, and acceptance criteria.
    - For existing-project modifications or upgrades, place extra weight on contract consistency and compatibility with the current codebase.
+   - Check every document touched by the proposed implementation and require the plan to include any needed alignment work. If the implementation will add files, verify whether related index documents, catalogs, registries, route lists, exports, or documentation indexes must also be updated.
    - Produce concrete findings, record them in the plan's review section, and apply fixes directly to the plan document. Do not leave a separate review report unless the user asks for one.
 
 6. Repeat review and revision until each generated project plan is approved.
@@ -80,6 +81,7 @@ Create project-local plan documents in `docs/plans/`, maintain each target proje
 8. Review `plan_index.md` after every maintenance pass.
    - Run the same review-and-revision loop on `plan_index.md`: review, apply fixes, review again, and repeat until it passes.
    - The `plan_index.md` review must additionally check source coverage, deduplication quality, contradiction resolution, per-point status consistency, and whether all newly integrated Markdown files are referenced.
+   - The `plan_index.md` review must check whether newly planned or implemented files require alignment with existing index documents, catalogs, registries, route lists, exports, or other documentation indexes, and must record that alignment obligation in the relevant modification point when needed.
    - When review finds a modification point incomplete, contradictory, unsafe, or untestable, mark that point `评审状态: 需修订`, apply the required fix, and review again.
    - When the review pass validates an active modification point, mark that point `评审状态: 已评审`.
    - Stop only when the review passes. Then recompute the overall `文档状态`, `评审状态`, and `执行状态` from the per-point statuses, and update `plan_index.md` metadata and review record to reflect the completed review count and latest modification time.
@@ -91,6 +93,7 @@ Create project-local plan documents in `docs/plans/`, maintain each target proje
    - Confirm generated plan filenames follow `<yyyymmdd-HHmm>-<proposal>.md`.
    - Confirm each target project's `docs/plans/plan_index.md` exists after the run.
    - Confirm every Markdown file in each target `docs/plans/` directory, except `plan_index.md`, is either referenced from `plan_index.md` or explicitly listed as intentionally excluded with a reason.
+   - Confirm implementation-related document alignment has been checked, including whether any newly added files require updates to index documents, catalogs, registries, route lists, exports, or documentation indexes.
    - Confirm metadata blocks, table of contents, plan sections, review notes or review summaries, and final reviewed status fields are present.
    - Confirm no template placeholders such as `<方案标题>`, `<YYYY-MM-DD HH:mm>`, or instructional placeholder text remain in final documents.
    - If the local project is a git repository, commit generated or updated plan documents and `plan_index.md`.
@@ -294,6 +297,7 @@ Each review pass must be an adversarial code-review-style pass, not a summary. F
 - Safety semantics: destructive commands, `--dry-run`, `--force`, idempotency, partial updates, fallback behavior, unknown fields, and secret handling are unambiguous and testable.
 - Cross-document consolidation: overlapping changes from multiple source plans under the same project are merged into one modification point with all source references preserved.
 - Conflict resolution quality: contradictory designs are evaluated for reasonableness, correctness, consistency, compatibility, implementation risk, rollout safety, and testability; unresolved high-impact choices are escalated to the user with options, pros, cons, and a recommendation.
+- Document alignment: documents touched by the implementation are aligned with the plan, and newly added files are checked for required updates to index documents, catalogs, registries, route lists, exports, or documentation indexes.
 - Contract compatibility: public APIs, data formats, config, environment variables, CLI behavior, database schema, generated files, tests, and deployment expectations remain compatible or have explicit migration steps.
 - Operational safety: rollout, monitoring, fallback, rollback, and data safety are addressed for risky changes.
 - Testability: the plan includes concrete verification steps and acceptance criteria.
