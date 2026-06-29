@@ -60,7 +60,7 @@ Use $plan-executor to implement docs/plans/20260605-1200-api-refactor.md, update
 9. 每完成一个修改点，执行评审、修正、再评审，直到通过。
 10. 更新 `plan_index.md`、源方案文档或临时执行清单状态。
 11. 重新计算整体执行状态，确认没有遗漏。
-12. 所有活跃修改点完成后，提交并推送。
+12. 所有活跃修改点完成后提交代码；如果当前不在 `main` 分支，先在当前分支提交，再切回并更新 `main`，把当前分支合并回 `main` 后推送 `main`。
 13. 结束前输出本次执行汇总报告，说明执行来源、前置提交、完成项、代码改动或无需改代码的原因、方案状态更新、验证结果和提交推送结果。
 
 ## 状态维护
@@ -109,7 +109,7 @@ Chinese invocation:
 6. Update `plan_index.md` and source plan statuses.
 7. Recompute overall status.
 8. Verify proportionally to the touched surface.
-9. Commit, push, and report the result.
+9. Commit the result; when work was completed outside `main`, merge it back to `main`, push `main`, and report the result.
 
 ## Files
 

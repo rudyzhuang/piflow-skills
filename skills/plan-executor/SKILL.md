@@ -185,7 +185,7 @@ Finish only after all of these are true:
 6. Verification evidence is recorded or summarized for each active point or checklist item.
 7. A final whole-change review has checked cross-item consistency, docs/examples/help output, status updates, and verification evidence after all edits are complete.
 8. The working tree contains only intended plan execution changes, plan status updates, and necessary supporting files.
-9. The final state has been committed and pushed through `commit_push` on `main`, unless the user explicitly requested another branch or commit/push is impossible.
+9. The final state has been committed, merged back to `main` when work was completed on another branch, and pushed through `commit_push`, unless the user explicitly requested another branch or commit/push is impossible.
 10. A concise execution summary report has been prepared for the user.
 
 Use the `commit-push` skill's `commit_push.cjs` script for final commit and push. Do not hand-write `git add`, `git commit`, or `git push` unless the script itself fails and you are explicitly troubleshooting the failure.
@@ -193,13 +193,14 @@ Use the `commit-push` skill's `commit_push.cjs` script for final commit and push
 Commit/push rules:
 
 - Default branch policy: plan execution work lands on `main`.
-- Before calling `commit_push`, check the target repository branch. If it is not `main`, switch to `main` and update it before committing unless the user explicitly requested another branch.
-- If switching to `main` is unsafe because of uncommitted unrelated work, classify those changes first and avoid losing them. Ask the user only if the branch switch would be unsafe.
+- Before calling `commit_push`, check the target repository branch. If the current branch is `main`, commit and push normally on `main`.
+- If the current branch is not `main`, use `commit_push --no-push` to commit the intended plan execution changes on the current branch first, then switch to `main`, update `main`, merge the committed work branch into `main`, and push `main`.
+- If switching to `main` or merging into `main` is unsafe because of uncommitted unrelated work, divergent history, or merge conflicts, classify the changes first and avoid losing them. Ask the user only if the branch switch or merge cannot be completed safely.
 - Pass every intended implementation file, test file, docs/plans file, status file, and supporting file with repeated `--file=<absolute-path>` arguments so unrelated user changes are not staged.
 - Include source plan documents and `plan_index.md` when their statuses were updated.
 - Use a concise Chinese intent or message that describes the implemented plan outcome.
 - Run a `commit_push --dry-run` preview first when there is any risk of staging unrelated files, then run the same command with `--yes`.
-- Push after commit when the repository has a remote/upstream. If no remote or upstream exists, do not create one unless the user explicitly asks. Report that the commit stayed local.
+- Push `main` after the commit or merge when the repository has a remote/upstream. If no remote or upstream exists, do not create one unless the user explicitly asks. Report that the commit or merge stayed local.
 - If commit or push is impossible because there is no git repository, no remote, no upstream, authentication failure, or an unsafe unresolved worktree conflict, report the blocker clearly with the remaining required action.
 
 Recommended command shape:
@@ -209,6 +210,17 @@ node ~/.cursor/skills/commit-push/scripts/commit_push.cjs \
   --intent="<本次方案执行目的>" \
   --file=<changed-file-1> \
   --file=<changed-file-2> \
+  --yes
+```
+
+When committing from a non-`main` branch before merging back:
+
+```bash
+node ~/.cursor/skills/commit-push/scripts/commit_push.cjs \
+  --intent="<本次方案执行目的>" \
+  --file=<changed-file-1> \
+  --file=<changed-file-2> \
+  --no-push \
   --yes
 ```
 

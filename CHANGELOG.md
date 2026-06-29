@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.15 - 2026-06-29
+
+- 更新 plan-executor 非 main 分支合并推送流程
+- Changed: 5 file(s).
+- Areas: skills(5).
+- Hints: documentation.
+
 ## 0.1.14 - 2026-06-21
 
 - 更新仓库说明与计划索引
